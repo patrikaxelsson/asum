@@ -8,6 +8,10 @@
  	include exec/types.i
 	include exec/execbase.i
 
+	xdef _MD5_Init
+	xdef _MD5_Update
+	xdef _MD5_Final
+
 pushm	macro
 	ifc	"\1","all"
 	movem.l	d0-a6,-(sp)
@@ -45,8 +49,7 @@ ASSERT_ macro
     illegal
     endm
 
-TEST=1
-;  endif ;; __VASM
+;TEST=1
 ;
     STRUCTURE MD5Ctx,0
         ULONG  ctx_a
@@ -96,6 +99,8 @@ main:
     ASSERT_  $24e13b51,d1
     ASSERT_  $4d1283b9,d2
     ASSERT_  $4b0f013b,d3
+
+    moveq    #0,d0
     rts
 
 .test
@@ -110,10 +115,13 @@ main:
     jsr      MD5_Update
 
     lea     .ctx,a0
+    lea     .hash,a1
     jsr     MD5_Final
+    movem.l .hash,d0-d3
     rts
 
 .ctx    ds.b    MD5Ctx_SIZEOF
+.hash   ds.b    16
 
 ;5c5aa2ba 6e48a0e5 59c149cd d4ce7a9e  test1b
 ;337bc768 148e5e64 9a4319cb bf87116b  test65b
@@ -140,6 +148,7 @@ stepCount   dc.l    0
 
 * In:
 *   a0 = context
+_MD5_Init:
 MD5_Init:
     pushm   d2-d7/a2-a6
     move.l  #$67452301,ctx_a(a0)
@@ -189,6 +198,7 @@ MD5_Init:
 *   a0 = context
 *   a1 = input data
 *   d0 = input data size
+_MD5_Update:
 MD5_Update:
     pushm   d2-d7/a2-a6
     move.l  ctx_lo(a0),d1
@@ -276,9 +286,12 @@ MD5_Update:
 * In:
 *   a0 = context
 * Out:
+*   a1 = hash
 *   
+_MD5_Final:
 MD5_Final:
-    pushm   d4-d7/a2-a6
+    pushm   d2-d7/a2-a6
+    push    a1
 	* used = ctx->lo & 0x3f;
     moveq   #$3f,d0
     and.l   ctx_lo(a0),d0
@@ -349,12 +362,14 @@ MD5_Final:
     move.l  ctx_bodyFunc(a0),a2
     jsr     (a2)
 
-    movem.l ctx_a(a0),d0-d3
+    moveq   #4-1,d2
+    lea     ctx_a(a0),a0
+    pop     a1
+.il move.l  (a0)+,d0
     ilword  d0
-    ilword  d1
-    ilword  d2
-    ilword  d3
-    popm    d4-d7/a2-a6
+    move.l  d0,(a1)+
+    dbf     d2,.il
+    popm    d2-d7/a2-a6
     rts
 
 
