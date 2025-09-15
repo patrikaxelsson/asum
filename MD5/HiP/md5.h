@@ -18,8 +18,8 @@ struct MD5Ctx {
 		APTR ctx_bodyFunc;
 };
 
-void MD5_Init(__reg("a0") struct MD5Ctx *ctx);
-void MD5_Update(__reg("a0") struct MD5Ctx *ctx, __reg("a1") void *data, __reg("d0") ULONG size);
-void MD5_Final(__reg("a0") struct MD5Ctx *ctx, __reg("a1") UBYTE hash[16]);
+__regargs void MD5_Init(struct MD5Ctx *ctx);
+__regargs void MD5_Update(struct MD5Ctx *ctx, void *data, ULONG size);
+__regargs void MD5_Final(struct MD5Ctx *ctx, UBYTE hash[16]);
 
 #endif

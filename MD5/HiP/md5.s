@@ -8,9 +8,9 @@
  	include exec/types.i
 	include exec/execbase.i
 
-	xdef _MD5_Init
-	xdef _MD5_Update
-	xdef _MD5_Final
+	xdef @MD5_Init
+	xdef @MD5_Update
+	xdef @MD5_Final
 
 pushm	macro
 	ifc	"\1","all"
@@ -148,7 +148,7 @@ stepCount   dc.l    0
 
 * In:
 *   a0 = context
-_MD5_Init:
+@MD5_Init:
 MD5_Init:
     pushm   d2-d7/a2-a6
     move.l  #$67452301,ctx_a(a0)
@@ -198,7 +198,7 @@ MD5_Init:
 *   a0 = context
 *   a1 = input data
 *   d0 = input data size
-_MD5_Update:
+@MD5_Update:
 MD5_Update:
     pushm   d2-d7/a2-a6
     move.l  ctx_lo(a0),d1
@@ -288,7 +288,7 @@ MD5_Update:
 * Out:
 *   a1 = hash
 *   
-_MD5_Final:
+@MD5_Final:
 MD5_Final:
     pushm   d2-d7/a2-a6
     push    a1
