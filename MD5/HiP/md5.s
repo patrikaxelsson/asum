@@ -692,6 +692,7 @@ stepIb2 macro
     add.l   \5,\4   * add constant
     endm
 
+ REM ; unused code
 * Reference implementation
 *
 * In:
@@ -866,6 +867,7 @@ MD5_Body:
     cmp.l   a3,a1      * check if end of last block
     bne     .loop
     rts
+ EREM
 
 * 68020/68030 specific
 * In:
@@ -1043,6 +1045,7 @@ MD5_Body_68020:
 
 
 
+ REM ; unused code
 * 68020/68030 specific
 * In:
 *   a0 = context
@@ -1162,12 +1165,12 @@ MD5_Body_68020_dlx:
 		; live reg d6 => out
 
 
- REM
-    move.l d5,1
-    move.l d7,2
-    move.l d4,3
-    move.l d3,4
- EREM
+; REM
+;    move.l d5,1
+;    move.l d7,2
+;    move.l d4,3
+;    move.l d3,4
+; EREM
     move.l  d4,d6
     move.l  d5,d4
     move.l  d7,d5
@@ -1276,12 +1279,12 @@ MD5_Body_68020_dlx:
 		; live reg d6 => out
 
 
- REM
-    move.l d5,1
-    move.l d7,2
-    move.l d4,3
-    move.l d3,4
- EREM
+; REM
+;    move.l d5,1
+;    move.l d7,2
+;    move.l d4,3
+;    move.l d3,4
+; EREM
     move.l  d4,d6
     move.l  d5,d4
     move.l  d7,d5
@@ -1386,12 +1389,12 @@ MD5_Body_68020_dlx:
 		;     @dreg   out
 		; live reg d6 => out
 
- REM
-    move.l d5,1
-    move.l d7,2
-    move.l d4,3
-    move.l d3,4
- EREM
+; REM
+;    move.l d5,1
+;    move.l d7,2
+;    move.l d4,3
+;    move.l d3,4
+; EREM
     move.l  d4,d6
     move.l  d5,d4
     move.l  d7,d5
@@ -1497,12 +1500,12 @@ MD5_Body_68020_dlx:
 		;     @rename out b
 		;     @dreg   out
 		; live reg d6 => out
- REM
-    move.l d5,1
-    move.l d7,2
-    move.l d4,3
-    move.l d3,4
- EREM
+; REM
+;    move.l d5,1
+;    move.l d7,2
+;    move.l d4,3
+;    move.l d3,4
+; EREM
     move.l  d4,d6
     move.l  d5,d4
     move.l  d7,d5
@@ -1519,10 +1522,12 @@ MD5_Body_68020_dlx:
     cmp.l   a3,a1      * check if end of last block
     bne     .loop
     rts
+ EREM
 
 
 
 
+ REM ; unused code
 * In:
 *   a0 = context
 *   a1 = input data
@@ -1904,8 +1909,10 @@ MD5_Body_small:
          dc.l $eb86d391 
 
          dc   -1 ; END
+ EREM
 
 
+ REM ; unused code
 * 68000 specific
 *
 * In:
@@ -2235,6 +2242,7 @@ MD5_Body_68000:
     cmp.l   a3,a1      * check if end of last block
     bne     .loop
     rts
+ EREM
 
 * FSUAE 68000 kick 1.3: 
 * - norm: 7400ms
@@ -2967,6 +2975,7 @@ MD5_Body_68000_dlx:
     rts
 		;     @kill a,b,c,d,out,temp
 
+ REM ; unused code
 * 68040/68060 specific
 *
 * In:
@@ -3296,6 +3305,7 @@ MD5_Body_68040:
     cmp.l   a3,a1      * check if end of last block
     bne     .loop
     rts
+ EREM
 
 
 * In:
