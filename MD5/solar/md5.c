@@ -255,7 +255,7 @@ void MD5_Update(MD5_CTX *ctx, const void *data, unsigned long size)
 	(dst)[2] = (unsigned char)((src) >> 16); \
 	(dst)[3] = (unsigned char)((src) >> 24);
 
-void MD5_Final(unsigned char *result, MD5_CTX *ctx)
+void MD5_Final(MD5_CTX *ctx, unsigned char *result)
 {
 	unsigned long used, available;
 
