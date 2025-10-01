@@ -11,7 +11,7 @@
 
 #include "AsyncFile.h"
 
-const char Version[] = "$VER: asum 0.5 (29.9.2025)";
+const char Version[] = "$VER: asum 0.6 (1.10.2025)";
 
 union MD5Hash {
 	ULONG longs[4];
@@ -24,8 +24,7 @@ static void MD5HashToHex(union MD5Hash *hash, char *hex);
 #define BUFFER_SIZE     (64 * 1024)
 #define LINEBUFFER_SIZE (4 * 1024)
 
-LONG asum() {
-	struct ExecBase *SysBase = *(struct ExecBase **) 4;
+LONG asum(struct ExecBase *SysBase) {
 	struct RDArgs *argsResult = NULL;
 	BPTR toFile = 0;
 	UBYTE *buffer = NULL;
