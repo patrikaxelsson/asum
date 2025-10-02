@@ -237,7 +237,7 @@ MD5_Update:
 .cp1        move.b  (a1)+,(a2)+
             dbf     d0,.cp1
 .cp1s
-            rts
+            bra     .skip
 .22
 		* memcpy(&ctx->buffer[used], data, free);
         move.l  d3,d4
@@ -248,7 +248,6 @@ MD5_Update:
         dbf     d3,.cp2
 .cp2s
 		* data = (unsigned char *)data + free;
-        add.l   d4,a1
 		* size -= free;
         sub.l   d4,d0
         pushm   d0/a1
