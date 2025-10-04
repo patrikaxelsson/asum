@@ -425,6 +425,59 @@ stepFa2 macro
     endm
 
 
+; Enable HANDLE_ODD if MD5_Body_68000_dlx must be able to handle odd aligned
+; data on a 68000.
+; There are two scenarios where this will happen:
+; 1. If you call MD5_Update with odd aligned data.
+; 2. If you call MD5_Update with data of odd length, followed by
+;    calls to MD5_update with even aligned data.
+;
+; Disable HANDLE_ODD if your calling code can guarantee the above never
+; happens.
+HANDLE_ODD=1
+    ifd HANDLE_ODD
+stepFa2OddFirst macro 
+    addq    #3,a1
+    stepFa2Odd \1,\2,\3,\4,\5,\6,\7
+    addq    #7,a1
+    endm
+stepFa2OddMiddle macro 
+    stepFa2Odd \1,\2,\3,\4,\5,\6,\7
+    addq    #7,a1
+    endm
+stepFa2OddLast macro 
+    stepFa2Odd \1,\2,\3,\4,\5,\6,\7
+    addq    #4,a1
+    endm
+; \1 a
+; \2 b
+; \3 c
+; \4 d
+; \5 tmp1 - output
+; \6 tmp2
+; \7 constant
+stepFa2Odd macro 
+    ;((z) ^ ((x) & ((y) ^ (z))))
+    move.b  (a1),\6     * read input
+    move.l  \3,\5       * mix to \5
+    ror.w   #8,\6       * ilword part 1
+    move.b  -(a1),\6    * read input
+    eor.l   \4,\5       * \5 = c ^ d 
+    swap    \6          * ilword part 2
+    move.b  -(a1),\6    * read input
+    ror.w   #8,\6       * ilword part 3
+    move.b  -(a1),\6    * read input
+    and.l   \2,\5       * \5 = (c ^ d) & b
+    move.l  \6,(a6)+    * write to block buffer
+    eor.l   \4,\5       * \5 = ((c ^ d) & b) ^ d
+
+    add.l   \6,\5      * add block value
+    add.l   \1,\5      * add ctx_a
+    add.l   \7,\5      * add constant
+    endm
+    endif ; HANDLE_ODD
+
+
 ; \1 a
 ; \2 b
 ; \3 c - output
@@ -2259,6 +2312,11 @@ MD5_Body_68000:
 MD5_Body_68000_dlx:
     ; ---------------------------------
     lea     (a1,d0.l),a3       * loop end
+    ifd HANDLE_ODD
+    move.w  a1,d2
+    andi.w  #1,d2
+    move.w  d2,a5      * save odd bit for check in loop
+    endif
 .loop
     lea     steps(pc),a2
     ; ---------------------------------
@@ -2274,6 +2332,187 @@ MD5_Body_68000_dlx:
     move.l  ctx_c(a0),d6
     move.l  ctx_d(a0),d7
     lea     ctx_block(a0),a6
+    ifd HANDLE_ODD
+    move.w  a5,d2
+    beq     .even
+    ; Step F for handling odd aligned data. Total MD5_Body_68000_dlx time is
+    ; 7% more on a 7MHz 68000, compared to when the even stepF is taken.
+    ; ---------------------------------
+    stepFa2OddFirst d4,d5,d6,d7,d3,d2,(a2)+
+    rol.l   #7,d3      * <<< 7
+    add.l   d5,d3      * add ctx_b, b = new sum
+		;     @kill   a
+		;     @rename d a
+		;     @rename c d
+		;     @rename b c
+		;     @rename out b
+		;     @dreg   out
+		; live reg d4 => out
+    stepFa2OddMiddle d7,d3,d5,d6,d4,d2,(a2)+
+    swap    d4         * <<< 12
+    ror.l   #4,d4
+    add.l   d3,d4      * tmp += b
+		;     @kill   a
+		;     @rename d a
+		;     @rename c d
+		;     @rename b c
+		;     @rename out b
+		;     @dreg   out
+		; live reg d7 => out
+    stepFa2OddMiddle d6,d4,d3,d5,d7,d2,(a2)+
+    swap    d7         * <<< 17
+    rol.l   #1,d7
+    add.l   d4,d7      * tmp += b
+		;     @kill   a
+		;     @rename d a
+		;     @rename c d
+		;     @rename b c
+		;     @rename out b
+		;     @dreg   out
+		; live reg d6 => out
+    stepFa2OddMiddle d5,d7,d4,d3,d6,d2,(a2)+  ;;;;;;;;
+    swap    d6         * <<< 22
+    rol.l   #6,d6      * <<<
+    add.l   d7,d6      * tmp += b
+		;     @kill   a
+		;     @rename d a
+		;     @rename c d
+		;     @rename b c
+		;     @rename out b
+		;     @dreg   out
+		; live reg d5 => out
+    stepFa2OddMiddle d3,d6,d7,d4,d5,d2,(a2)+
+    rol.l   #7,d5      * <<< 7
+    add.l   d6,d5      * add ctx_b, b = new sum
+		;     @kill   a
+		;     @rename d a
+		;     @rename c d
+		;     @rename b c
+		;     @rename out b
+		;     @dreg   out
+		; live reg d3 => out
+    stepFa2OddMiddle d4,d5,d6,d7,d3,d2,(a2)+
+    swap    d3         * <<< 12
+    ror.l   #4,d3
+    add.l   d5,d3      * tmp += b
+		;     @kill   a
+		;     @rename d a
+		;     @rename c d
+		;     @rename b c
+		;     @rename out b
+		;     @dreg   out
+		; live reg d4 => out
+    stepFa2OddMiddle d7,d3,d5,d6,d4,d2,(a2)+
+    swap    d4         * <<< 17
+    rol.l   #1,d4
+    add.l   d3,d4      * tmp += b
+		;     @kill   a
+		;     @rename d a
+		;     @rename c d
+		;     @rename b c
+		;     @rename out b
+		;     @dreg   out
+		; live reg d7 => out
+    stepFa2OddMiddle d6,d4,d3,d5,d7,d2,(a2)+
+    swap    d7         * <<< 22
+    rol.l   #6,d7      * <<<
+    add.l   d4,d7      * rotate: b = new sum
+		;     @kill   a
+		;     @rename d a
+		;     @rename c d
+		;     @rename b c
+		;     @rename out b
+		;     @dreg   out
+		; live reg d6 => out
+    stepFa2OddMiddle d5,d7,d4,d3,d6,d2,(a2)+
+    rol.l   #7,d6      * <<< 7
+    add.l   d7,d6      * add ctx_b, b = new sum
+		;     @kill   a
+		;     @rename d a
+		;     @rename c d
+		;     @rename b c
+		;     @rename out b
+		;     @dreg   out
+		; live reg d5 => out
+    stepFa2OddMiddle d3,d6,d7,d4,d5,d2,(a2)+
+    swap    d5         * <<< 12
+    ror.l   #4,d5
+    add.l   d6,d5      * tmp += b
+		;     @kill   a
+		;     @rename d a
+		;     @rename c d
+		;     @rename b c
+		;     @rename out b
+		;     @dreg   out
+		; live reg d3 => out
+    stepFa2OddMiddle d4,d5,d6,d7,d3,d2,(a2)+
+    swap    d3         * <<< 17
+    rol.l   #1,d3
+    add.l   d5,d3      * tmp += b
+		;     @kill   a
+		;     @rename d a
+		;     @rename c d
+		;     @rename b c
+		;     @rename out b
+		;     @dreg   out
+		; live reg d4 => out
+    stepFa2OddMiddle d7,d3,d5,d6,d4,d2,(a2)+
+    swap    d4         * <<< 22
+    rol.l   #6,d4      * <<<
+    add.l   d3,d4      * rotate: b = new sum
+		;     @kill   a
+		;     @rename d a
+		;     @rename c d
+		;     @rename b c
+		;     @rename out b
+		;     @dreg   out
+		; live reg d7 => out
+    stepFa2OddMiddle d6,d4,d3,d5,d7,d2,(a2)+
+    rol.l   #7,d7      * <<< 7
+    add.l   d4,d7      * add ctx_b, b = new sum
+		;     @kill   a
+		;     @rename d a
+		;     @rename c d
+		;     @rename b c
+		;     @rename out b
+		;     @dreg   out
+		; live reg d6 => out
+    stepFa2OddMiddle d5,d7,d4,d3,d6,d2,(a2)+
+    swap    d6         * <<< 12
+    ror.l   #4,d6
+    add.l   d7,d6      * tmp += b
+		;     @kill   a
+		;     @rename d a
+		;     @rename c d
+		;     @rename b c
+		;     @rename out b
+		;     @dreg   out
+		; live reg d5 => out
+    stepFa2OddMiddle d3,d6,d7,d4,d5,d2,(a2)+
+    swap    d5         * <<< 17
+    rol.l   #1,d5
+    add.l   d6,d5      * tmp += b
+		;     @kill   a
+		;     @rename d a
+		;     @rename c d
+		;     @rename b c
+		;     @rename out b
+		;     @dreg   out
+		; live reg d3 => out
+    stepFa2OddLast d4,d5,d6,d7,d3,d2,(a2)+
+    swap    d3         * <<< 22
+    rol.l   #6,d3      * <<<
+    add.l   d5,d3      * rotate: b = new sum
+		;     @kill   a
+		;     @rename d a
+		;     @rename c d
+		;     @rename b c
+		;     @rename out b
+		;     @dreg   out
+		; live reg d4 => out
+    bra     .stepG
+    endif ; HANDLE_ODD
+.even
     ; ---------------------------------
     stepFa2 d4,d5,d6,d7,d3,d2,(a2)+
     rol.l   #7,d3      * <<< 7
@@ -2447,6 +2686,7 @@ MD5_Body_68000_dlx:
 		;     @rename out b
 		;     @dreg   out
 		; live reg d4 => out
+.stepG:
     ; ---------------------------------
     stepGa2 d7,d3,d5,d6,d4,(a2)+,1<<2
     rol.l   #5,d4      * <<< 5

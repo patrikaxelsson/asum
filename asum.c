@@ -11,7 +11,7 @@
 
 #include "AsyncFile.h"
 
-const char Version[] = "$VER: asum 0.7 (2.10.2025)";
+const char Version[] = "$VER: asum 0.8 (4.10.2025)";
 
 union MD5Hash {
 	ULONG longs[4];
