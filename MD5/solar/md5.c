@@ -54,12 +54,14 @@
 #define H2(x, y, z)			((x) ^ ((y) ^ (z)))
 #define I(x, y, z)			((y) ^ ((x) | ~(z)))
 
+#define ROTATE_LEFT(a, s) (((a) << (s)) | (((a) & 0xffffffff) >> (32 - (s))))
+
 /*
  * The MD5 transformation for all four rounds.
  */
 #define STEP(f, a, b, c, d, x, t, s) \
 	(a) += f((b), (c), (d)) + (x) + (t); \
-	(a) = (((a) << (s)) | (((a) & 0xffffffff) >> (32 - (s)))); \
+	(a) = ROTATE_LEFT(a, s); \
 	(a) += (b);
 
 /*
