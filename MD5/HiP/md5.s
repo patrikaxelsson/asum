@@ -379,32 +379,6 @@ MD5_Final:
 ; \4 d
 ; \5 tmp1 - output
 ; \6 tmp2
-stepFa macro 
-    move.l  (a1)+,\6    * read input
-
-    ;((z) ^ ((x) & ((y) ^ (z))))
-    move.l  \3,\5       * mix to \5
-    ror.w   #8,\6       * ilword part 1
-    eor.l   \4,\5       * \5 = c ^ d 
-    swap    \6          * ilword part 2
-    ror.w   #8,\6       * ilword part 3
-    and.l   \2,\5       * \5 = (c ^ d) & b
-    move.l  \6,(a6)+    * write to block buffer
-    eor.l   \4,\5       * \5 = ((c ^ d) & b) ^ d
-
-    add.l   \6,\5      * add block value
-    add.l   \1,\5      * add ctx_a
-    add.l   (a2)+,\5   * add constant
-    endm
-
-
-
-; \1 a
-; \2 b
-; \3 c
-; \4 d
-; \5 tmp1 - output
-; \6 tmp2
 ; \7 constant
 stepFa2 macro 
     move.l  (a1)+,\6    * read input
@@ -766,14 +740,14 @@ MD5_Body:
     moveq   #16/4-1,d3
 .stepLoopF:
     *       A  B  C  D  t1 t2
-    stepFa  d4,d5,d6,d7,d0,d1
+    stepFa2 d4,d5,d6,d7,d0,d1,(a2)+
     rol.l   #7,d0      * <<< 7
     add.l   d5,d0      * add ctx_b, b = new sum
     * d0 = new b - goes to b
     * d5 = old b - goes to c
     ; ---------------------------------
     *       A  B  C  D  t1 t2
-    stepFa  d7,d0,d5,d6,d2,d1
+    stepFa2 d7,d0,d5,d6,d2,d1,(a2)+
     swap    d2         * <<< 12
     ror.l   #4,d2
     add.l   d0,d2      * tmp += b
@@ -781,7 +755,7 @@ MD5_Body:
     * d0 = old b - goes to c
     ; ---------------------------------
     *       A  B  C  D  t1 t2
-    stepFa  d6,d2,d0,d5,d7,d1
+    stepFa2 d6,d2,d0,d5,d7,d1,(a2)+
     swap    d7         * <<< 17
     rol.l   #1,d7
     add.l   d2,d7      * tmp += b
@@ -941,14 +915,14 @@ MD5_Body_68020:
     moveq   #16/4-1,d3
 .stepLoopF:
     *       A  B  C  D  t1 t2
-    stepFa  d4,d5,d6,d7,d0,d1
+    stepFa2 d4,d5,d6,d7,d0,d1,(a2)+
     rol.l   #7,d0      * <<< 7
     add.l   d5,d0      * add ctx_b, b = new sum
     * d0 = new b - goes to b
     * d5 = old b - goes to c
     ; ---------------------------------
     *       A  B  C  D  t1 t2
-    stepFa  d7,d0,d5,d6,d2,d1
+    stepFa2 d7,d0,d5,d6,d2,d1,(a2)+
     moveq   #12,d4
     rol.l   d4,d2
     add.l   d0,d2      * tmp += b
@@ -956,7 +930,7 @@ MD5_Body_68020:
     * d0 = old b - goes to c
     ; ---------------------------------
     *       A  B  C  D  t1 t2
-    stepFa  d6,d2,d0,d5,d7,d1
+    stepFa2 d6,d2,d0,d5,d7,d1,(a2)+
     moveq   #17,d4
     rol.l   d4,d7
     add.l   d2,d7      * tmp += b
@@ -1129,7 +1103,7 @@ MD5_Body_68020_dlx:
     ; ---------------------------------
     moveq   #16/8-1,d1
 .stepLoopF:
-    stepFa  d4,d5,d6,d7,d3,d2
+    stepFa2 d4,d5,d6,d7,d3,d2,(a2)+
     rol.l   #7,d3
     add.l   d5,d3      * tmp += b
 		;     @kill   a
@@ -1139,7 +1113,7 @@ MD5_Body_68020_dlx:
 		;     @rename out b
 		;     @dreg   out
 		; live reg d4 => out
-    stepFa  d7,d3,d5,d6,d4,d2
+    stepFa2 d7,d3,d5,d6,d4,d2,(a2)+
     moveq   #12,d0
     rol.l   d0,d4
     add.l   d3,d4      * tmp += b
@@ -1150,7 +1124,7 @@ MD5_Body_68020_dlx:
 		;     @rename out b
 		;     @dreg   out
 		; live reg d7 => out
-    stepFa  d6,d4,d3,d5,d7,d2
+    stepFa2 d6,d4,d3,d5,d7,d2,(a2)+
     moveq   #17,d0
     rol.l   d0,d7
     add.l   d4,d7      * tmp += b
@@ -1161,7 +1135,7 @@ MD5_Body_68020_dlx:
 		;     @rename out b
 		;     @dreg   out
 		; live reg d6 => out
-    stepFa  d5,d7,d4,d3,d6,d2
+    stepFa2 d5,d7,d4,d3,d6,d2,(a2)+
     moveq   #22,d0
     rol.l   d0,d6
     add.l   d7,d6      * tmp += b
@@ -1172,7 +1146,7 @@ MD5_Body_68020_dlx:
 		;     @rename out b
 		;     @dreg   out
 		; live reg d5 => out
-    stepFa  d3,d6,d7,d4,d5,d2
+    stepFa2 d3,d6,d7,d4,d5,d2,(a2)+
     rol.l   #7,d5
     add.l   d6,d5      * tmp += b
 		;     @kill   a
@@ -1182,7 +1156,7 @@ MD5_Body_68020_dlx:
 		;     @rename out b
 		;     @dreg   out
 		; live reg d3 => out
-    stepFa  d4,d5,d6,d7,d3,d2
+    stepFa2 d4,d5,d6,d7,d3,d2,(a2)+
     moveq   #12,d0
     rol.l   d0,d3
     add.l   d5,d3      * tmp += b
@@ -1193,7 +1167,7 @@ MD5_Body_68020_dlx:
 		;     @rename out b
 		;     @dreg   out
 		; live reg d4 => out
-    stepFa  d7,d3,d5,d6,d4,d2
+    stepFa2 d7,d3,d5,d6,d4,d2,(a2)+
     moveq   #17,d0
     rol.l   d0,d4
     add.l   d3,d4      * tmp += b
@@ -1204,7 +1178,7 @@ MD5_Body_68020_dlx:
 		;     @rename out b
 		;     @dreg   out
 		; live reg d7 => out
-    stepFa  d6,d4,d3,d5,d7,d2
+    stepFa2 d6,d4,d3,d5,d7,d2,(a2)+
     moveq   #22,d0
     rol.l   d0,d7
     add.l   d4,d7      * tmp += b
