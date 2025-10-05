@@ -284,8 +284,6 @@ void MD5_Final(MD5_CTX *ctx, unsigned char *result)
 	OUT(&result[4], ctx->b)
 	OUT(&result[8], ctx->c)
 	OUT(&result[12], ctx->d)
-
-	memset(ctx, 0, sizeof(*ctx));
 }
 
 #endif
