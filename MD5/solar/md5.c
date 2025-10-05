@@ -23,11 +23,10 @@
  * (This is a heavily cut-down "BSD license".)
  *
  * This differs from Colin Plumb's older public domain implementation in that
- * no exactly 32-bit integer data type is required (any 32-bit or wider
- * unsigned integer data type will do), there's no compile-time endianness
- * configuration, and the function prototypes match OpenSSL's.  No code from
- * Colin Plumb's implementation has been reused; this comment merely compares
- * the properties of the two independent implementations.
+ * there's no compile-time endianness configuration, and the function
+ * prototypes match OpenSSL's.  No code from Colin Plumb's implementation has
+ * been reused; this comment merely compares the properties of the two
+ * independent implementations.
  *
  * The primary goals of this implementation are portability and ease of use.
  * It is meant to be fast, but not as fast as possible.  Some known
@@ -54,7 +53,7 @@
 #define H2(x, y, z)			((x) ^ ((y) ^ (z)))
 #define I(x, y, z)			((y) ^ ((x) | ~(z)))
 
-#define ROTATE_LEFT(a, s) (((a) << (s)) | (((a) & 0xffffffff) >> (32 - (s))))
+#define ROTATE_LEFT(a, s) (((a) << (s)) | ((a) >> (32 - (s))))
 
 /*
  * The MD5 transformation for all four rounds.
@@ -81,16 +80,16 @@
  */
 #if defined(__i386__) || defined(__x86_64__) || defined(__vax__)
 #define SET(n) \
-	(*(MD5_u32plus *)&ptr[(n) * 4])
+	(*(uint32_t *)&ptr[(n) * 4])
 #define GET(n) \
 	SET(n)
 #else
 #define SET(n) \
 	(ctx->block[(n)] = \
-	(MD5_u32plus)ptr[(n) * 4] | \
-	((MD5_u32plus)ptr[(n) * 4 + 1] << 8) | \
-	((MD5_u32plus)ptr[(n) * 4 + 2] << 16) | \
-	((MD5_u32plus)ptr[(n) * 4 + 3] << 24))
+	(uint32_t)ptr[(n) * 4] | \
+	((uint32_t)ptr[(n) * 4 + 1] << 8) | \
+	((uint32_t)ptr[(n) * 4 + 2] << 16) | \
+	((uint32_t)ptr[(n) * 4 + 3] << 24))
 #define GET(n) \
 	(ctx->block[(n)])
 #endif
@@ -99,13 +98,13 @@
  * This processes one or more 64-byte data blocks, but does NOT update the bit
  * counters.  There are no alignment requirements.
  */
-static const void *body(MD5_CTX *ctx, const void *data, unsigned long size)
+static const void *body(MD5_CTX *ctx, const void *data, size_t size)
 {
-	const unsigned char *ptr;
-	MD5_u32plus a, b, c, d;
-	MD5_u32plus saved_a, saved_b, saved_c, saved_d;
+	const uint8_t *ptr;
+	uint32_t a, b, c, d;
+	uint32_t saved_a, saved_b, saved_c, saved_d;
 
-	ptr = (const unsigned char *)data;
+	ptr = data;
 
 	a = ctx->a;
 	b = ctx->b;
@@ -217,10 +216,10 @@ void MD5_Init(MD5_CTX *ctx)
 	ctx->hi = 0;
 }
 
-void MD5_Update(MD5_CTX *ctx, const void *data, unsigned long size)
+void MD5_Update(MD5_CTX *ctx, const void *data, size_t size)
 {
-	MD5_u32plus saved_lo;
-	unsigned long used, available;
+	uint32_t saved_lo;
+	unsigned used, available;
 
 	saved_lo = ctx->lo;
 	if ((ctx->lo = (saved_lo + size) & 0x1fffffff) < saved_lo)
@@ -238,13 +237,13 @@ void MD5_Update(MD5_CTX *ctx, const void *data, unsigned long size)
 		}
 
 		memcpy(&ctx->buffer[used], data, available);
-		data = (const unsigned char *)data + available;
+		data = (const uint8_t *)data + available;
 		size -= available;
 		body(ctx, ctx->buffer, 64);
 	}
 
 	if (size >= 64) {
-		data = body(ctx, data, size & ~(unsigned long)0x3f);
+		data = body(ctx, data, size & ~(size_t)0x3f);
 		size &= 0x3f;
 	}
 
@@ -252,14 +251,14 @@ void MD5_Update(MD5_CTX *ctx, const void *data, unsigned long size)
 }
 
 #define OUT(dst, src) \
-	(dst)[0] = (unsigned char)(src); \
-	(dst)[1] = (unsigned char)((src) >> 8); \
-	(dst)[2] = (unsigned char)((src) >> 16); \
-	(dst)[3] = (unsigned char)((src) >> 24);
+	(dst)[0] = (uint8_t)(src); \
+	(dst)[1] = (uint8_t)((src) >> 8); \
+	(dst)[2] = (uint8_t)((src) >> 16); \
+	(dst)[3] = (uint8_t)((src) >> 24);
 
-void MD5_Final(MD5_CTX *ctx, unsigned char *result)
+void MD5_Final(MD5_CTX *ctx, uint8_t *result)
 {
-	unsigned long used, available;
+	unsigned used, available;
 
 	used = ctx->lo & 0x3f;
 
