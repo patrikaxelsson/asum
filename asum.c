@@ -1,17 +1,32 @@
 #include <proto/exec.h>
 #include <proto/dos.h>
+#ifdef __M68K__
+#include <proto/powerpc.h>
+#else
+static void *AllocVec32(ULONG size, ULONG flags) {
+	return NULL;
+}
+static void FreeVec32(void *address) {
+}
+#endif
 
 #include <exec/exec.h>
 #include <dos/dos.h>
+#ifdef __M68K__
+#include <powerpc/powerpc.h>
+#else
+#define PPERR_SUCCESS 0
+#endif
 
 #include <string.h>
 #include <stdbool.h>
 
 #include <md5.h>
 
+#include "WarpOSMD5Wrapper.h"
 #include "AsyncFile.h"
 
-const char Version[] = "$VER: asum 0.9 (5.10.2025)";
+const char Version[] = "$VER: asum 0.10 (7.10.2025)";
 
 union MD5Hash {
 	ULONG longs[4];
@@ -26,6 +41,7 @@ static void MD5HashToHex(union MD5Hash *hash, char *hex);
 
 LONG asum(struct ExecBase *SysBase) {
 	struct RDArgs *argsResult = NULL;
+	struct Library *PowerPCBase = NULL;
 	BPTR toFile = 0;
 	UBYTE *buffer = NULL;
 	UBYTE *buffers[2];
@@ -64,9 +80,13 @@ LONG asum(struct ExecBase *SysBase) {
 		goto cleanup;
 	}
 
-	buffer = AllocMem(BUFFER_SIZE * 2, MEMF_ANY);
+	#ifdef __M68K__
+	PowerPCBase = OpenLibrary("powerpc.library", 15);
+	#endif
+
+	buffer = NULL == PowerPCBase ? AllocMem(BUFFER_SIZE * 2, MEMF_ANY) : AllocVec32(BUFFER_SIZE * 2, MEMF_ANY);
 	lineBuffer = AllocMem(LINEBUFFER_SIZE, MEMF_ANY);
-	ctx = AllocMem(sizeof(*ctx), MEMF_ANY);
+	ctx = NULL == PowerPCBase ? AllocMem(sizeof(*ctx), MEMF_ANY) : AllocVec32(sizeof(*ctx), MEMF_ANY);
 	if (NULL == buffer || NULL == lineBuffer || NULL == ctx) {
 		PrintFault(ERROR_NO_FREE_STORE, programName);
 		goto cleanup;	
@@ -130,6 +150,16 @@ LONG asum(struct ExecBase *SysBase) {
 					AsyncFileStartRead(DOSBase, &asyncFile, buffers[currBuffer], BUFFER_SIZE);
 
 					MD5_Init(ctx);
+					if (NULL == PowerPCBase) {
+						MD5_Init(ctx);
+					}
+					else {
+						LONG result = WarpOS_MD5_Init(PowerPCBase, ctx);
+						if (PPERR_SUCCESS != result) {
+							PutStr("RunPPC fail!\n");
+							goto cleanup;
+						}
+					}
 
 					while (1) {
 						if (SetSignal(0, SIGBREAKF_CTRL_C) & SIGBREAKF_CTRL_C) {
@@ -146,7 +176,16 @@ LONG asum(struct ExecBase *SysBase) {
 						}
 						unsigned nextBuffer = (currBuffer + 1) & 1;
 						AsyncFileStartRead(DOSBase, &asyncFile, buffers[nextBuffer], BUFFER_SIZE);
-						MD5_Update(ctx, buffers[currBuffer], readBytes);
+						if (NULL == PowerPCBase) {
+							MD5_Update(ctx, buffers[currBuffer], readBytes);
+						}
+						else {
+							LONG result = WarpOS_MD5_Update(PowerPCBase, ctx, buffers[currBuffer], readBytes);
+							if (PPERR_SUCCESS != result) {
+								PutStr("RunPPC fail!\n");
+								goto cleanup;
+							}
+						}
 						currBuffer = nextBuffer;
 					}
 					AsyncFileCleanup(SysBase, DOSBase, &asyncFile);
@@ -154,7 +193,16 @@ LONG asum(struct ExecBase *SysBase) {
 					file = 0;
 
 					union MD5Hash hash;
-					MD5_Final(ctx, hash.bytes);
+					if (NULL == PowerPCBase) {
+						MD5_Final(ctx, hash.bytes);
+					}
+					else {
+						LONG result = WarpOS_MD5_Final(PowerPCBase, ctx, hash.bytes);
+						if (PPERR_SUCCESS != result) {
+							PutStr("RunPPC fail!\n");
+							goto cleanup;
+						}
+					}
 					MD5HashToHex(&hash, lineBuffer);
 					lineBuffer[32] = ' ';
 					lineBuffer[33] = ' ';
@@ -223,6 +271,16 @@ LONG asum(struct ExecBase *SysBase) {
 			AsyncFileStartRead(DOSBase, &asyncFile, buffers[currBuffer], BUFFER_SIZE);
 
 			MD5_Init(ctx);
+			if (NULL == PowerPCBase) {
+				MD5_Init(ctx);
+			}
+			else {
+				LONG result = WarpOS_MD5_Init(PowerPCBase, ctx);
+				if (PPERR_SUCCESS != result) {
+					PutStr("RunPPC fail!\n");
+					goto cleanup;
+				}
+			}
 			
 			while (1) {
 				if (SetSignal(0, SIGBREAKF_CTRL_C) & SIGBREAKF_CTRL_C) {
@@ -239,7 +297,16 @@ LONG asum(struct ExecBase *SysBase) {
 				}
 				unsigned nextBuffer = (currBuffer + 1) & 1;
 				AsyncFileStartRead(DOSBase, &asyncFile, buffers[nextBuffer], BUFFER_SIZE);
-				MD5_Update(ctx, buffers[currBuffer], readBytes);
+				if (NULL == PowerPCBase) {
+					MD5_Update(ctx, buffers[currBuffer], readBytes);
+				}
+				else {
+					LONG result = WarpOS_MD5_Update(PowerPCBase, ctx, buffers[currBuffer], readBytes);
+					if (PPERR_SUCCESS != result) {
+						PutStr("RunPPC fail!\n");
+						goto cleanup;
+					}
+				}
 				currBuffer = nextBuffer;
 			}
 			AsyncFileCleanup(SysBase, DOSBase, &asyncFile);
@@ -247,7 +314,16 @@ LONG asum(struct ExecBase *SysBase) {
 			file = 0;
 			
 			union MD5Hash hash;
-			MD5_Final(ctx, hash.bytes);
+			if (NULL == PowerPCBase) {
+				MD5_Final(ctx, hash.bytes);
+			}
+			else {
+				LONG result = WarpOS_MD5_Final(PowerPCBase, ctx, hash.bytes);
+				if (PPERR_SUCCESS != result) {
+					PutStr("RunPPC fail!\n");
+					goto cleanup;
+				}
+			}
 			union MD5Hash checkHash;
 			HexToMD5Hash(checkDigest, &checkHash);
 
@@ -265,7 +341,7 @@ LONG asum(struct ExecBase *SysBase) {
 	retVal = 0 != missingFiles ? RETURN_WARN : RETURN_OK;
 cleanup:
 	if (NULL != ctx) {
-		FreeMem(ctx, sizeof(*ctx));
+		NULL == PowerPCBase ? FreeMem(ctx, sizeof(*ctx)) : FreeVec32(ctx);
 	}
 	if (0 != checkFile) {
 		Close(checkFile);
@@ -282,10 +358,13 @@ cleanup:
 		FreeMem(lineBuffer, LINEBUFFER_SIZE);
 	}
 	if (NULL != buffer) {
-		FreeMem(buffer, BUFFER_SIZE * 2);
+		NULL == PowerPCBase ? FreeMem(buffer, BUFFER_SIZE * 2) : FreeVec32(buffer);
 	}
 	if (NULL != args.toName) {
 		Close(toFile);
+	}
+	if (NULL != PowerPCBase) {
+		CloseLibrary(PowerPCBase);
 	}
 	if (NULL != argsResult) {
 		FreeArgs(argsResult);

@@ -3,4 +3,5 @@
 /asum.aros-i386
 /asum.mos
 /uhctools_deploy.sh
+*.o
 *.*.swp
