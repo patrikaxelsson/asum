@@ -29,6 +29,7 @@
 #define _MD5_H
 
 #include <stdint.h>
+#include <stddef.h>
 
 typedef struct MD5Ctx {
 	uint32_t a, b, c, d;
