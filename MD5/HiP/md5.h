@@ -7,8 +7,8 @@ struct MD5Ctx {
         ULONG b;
         ULONG c;
         ULONG d;
-        UBYTE buffer[64];
         ULONG block[16];
+        UBYTE buffer[64];
         ULONG lo;
         ULONG hi;
 		struct {

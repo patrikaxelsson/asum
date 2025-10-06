@@ -33,8 +33,8 @@
 
 typedef struct MD5Ctx {
 	uint32_t a, b, c, d;
-	uint8_t buffer[64];
 	uint32_t block[16];
+	uint8_t buffer[64];
 	uint32_t lo, hi;
 } MD5_CTX;
 
