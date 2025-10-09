@@ -26,7 +26,7 @@ static void FreeVec32(void *address) {
 #include "WarpOSMD5Wrapper.h"
 #include "AsyncFile.h"
 
-const char Version[] = "$VER: asum 0.10 (7.10.2025)";
+const char Version[] = "$VER: asum 0.11 (10.10.2025)";
 
 union MD5Hash {
 	ULONG longs[4];

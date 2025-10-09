@@ -6,8 +6,8 @@ asum: asum.c Startup.c AsyncFile.c AsyncFile.h MD5/HiP/md5.s MD5/HiP/md5.h WarpO
 # This separate step is required before linking with 68k code, to avoid PPC
 # code referencing say the _memcpy symbol, being linked to the 68k _memcpy
 # code.
-WarpOSMD5Wrapper-prelinked.o: WarpOSMD5Wrapper.o MD5/solar/md5-warpos.o Makefile
-	vlink -bamigaehf -r -o $@ $< MD5/solar/md5-warpos.o -L$(VBCC)/targets/ppc-warpos/lib -lamiga -lvc
+WarpOSMD5Wrapper-prelinked.o: WarpOSMD5Wrapper.o MD5/UHC/md5-warpos.o Makefile
+	vlink -bamigaehf -r -o $@ $< MD5/UHC/md5-warpos.o -L$(VBCC)/targets/ppc-warpos/lib -lamiga -lvc
 
 # This step is to not have to redefine the function names in the MD5
 # implementation used for the PPC, and allow them to co-exist with the 68k
@@ -15,8 +15,11 @@ WarpOSMD5Wrapper-prelinked.o: WarpOSMD5Wrapper.o MD5/solar/md5-warpos.o Makefile
 WarpOSMD5Wrapper.o: WarpOSMD5Wrapper.c Makefile
 	vc +aos68k -nostdlib -O2 -sc -fastcall -D__NOLIBBASE__ -c -o $@ $<
 
-MD5/solar/md5-warpos.o: MD5/solar/md5.c MD5/solar/md5.h Makefile
-	vc +warpos -O2 -use-lmw -c -o $@ $<
+MD5/UHC/md5-warpos.o: MD5/UHC/md5.s MD5/UHC/md5.h Makefile
+	vasmppc_std -quiet -Fhunk -opt-branch -o $@ $<
+
+MD5/UHC/md5-morphos.o: MD5/UHC/md5.s MD5/UHC/md5.h Makefile
+	vasmppc_std -quiet -Felf -opt-branch -D__ELF__ -o $@ $<
 
 asum-solar: asum.c Startup.c AsyncFile.c AsyncFile.h MD5/solar/md5.c MD5/solar/md5.h Makefile
 	vc +aos68k -nostdlib -O2 -sc -fastcall -D__NOLIBBASE__ -IMD5/solar -lvc -o $@ Startup.c $< AsyncFile.c MD5/solar/md5.c
@@ -24,8 +27,8 @@ asum-solar: asum.c Startup.c AsyncFile.c AsyncFile.h MD5/solar/md5.c MD5/solar/m
 asum.aros-i386: asum.c StartupAROS.c AsyncFile.c AsyncFile.h MD5/solar/md5.c MD5/solar/md5.h Makefile
 	i386-aros-gcc -nostartfiles -std=gnu99 -O2 -s -D__NOLIBBASE__ -IMD5/solar -static -o $@ StartupAROS.c $< AsyncFile.c MD5/solar/md5.c
 
-asum.mos: asum.c StartupMOS.c AsyncFile.c AsyncFile.h MD5/solar/md5.c MD5/solar/md5.h Makefile
-	vc +morphos -nostdlib -O2 -use-lmw -D__NOLIBBASE__ -IMD5/solar -lvc -o $@ StartupMos.c $< AsyncFile.c MD5/solar/md5.c
+asum.mos: asum.c StartupMOS.c AsyncFile.c AsyncFile.h MD5/UHC/md5-morphos.o MD5/UHC/md5.h Makefile
+	vc +morphos -nostdlib -O2 -use-lmw -D__NOLIBBASE__ -IMD5/UHC -lvc -o $@ StartupMos.c $< AsyncFile.c MD5/UHC/md5-morphos.o
 
 clean:
-	$(RM) asum asum.aros-i386 asum.mos WarpOSMD5Wrapper.o WarpOSMD5Wrapper-prelinked.o MD5/solar/md5-warpos.o
+	$(RM) asum asum.aros-i386 asum.mos WarpOSMD5Wrapper.o WarpOSMD5Wrapper-prelinked.o MD5/UHC/md5-warpos.o MD5/UHC/md5-morphos.o
