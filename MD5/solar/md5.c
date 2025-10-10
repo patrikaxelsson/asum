@@ -250,11 +250,16 @@ void MD5_Update(MD5_CTX *ctx, const void *data, size_t size)
 	memcpy(ctx->buffer, data, size);
 }
 
+#if defined(__i386__) || defined(__x86_64__) || defined(__vax__)
+#define OUT(dst, src) \
+	(*(uint32_t *)(dst)) = (src);
+#else
 #define OUT(dst, src) \
 	(dst)[0] = (uint8_t)(src); \
 	(dst)[1] = (uint8_t)((src) >> 8); \
 	(dst)[2] = (uint8_t)((src) >> 16); \
 	(dst)[3] = (uint8_t)((src) >> 24);
+#endif
 
 void MD5_Final(MD5_CTX *ctx, uint8_t *result)
 {
