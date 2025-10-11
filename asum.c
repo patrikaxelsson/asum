@@ -40,24 +40,28 @@ static void MD5HashToHex(union MD5Hash *hash, char *hex);
 #define LINEBUFFER_SIZE (4 * 1024)
 
 LONG asum(struct ExecBase *SysBase) {
-	struct RDArgs *argsResult = NULL;
+	struct DosLibrary *DOSBase = (void *) OpenLibrary("dos.library", 36);
+	#ifdef __M68K__
+	struct Library *PowerPCBase = OpenLibrary("powerpc.library", 15);
+	#else
 	struct Library *PowerPCBase = NULL;
-	BPTR toFile = 0;
+	#endif
+	struct RDArgs *argsResult = NULL;
 	UBYTE *buffer = NULL;
+	char *lineBuffer = NULL;
+	struct MD5Ctx *ctx = NULL;
 	UBYTE *buffers[2];
 	unsigned currBuffer = 0;
-	BPTR file = 0;
-	struct AsyncFile asyncFile = {0};
-	char *lineBuffer = NULL;
+	BPTR toFile = 0;
 	struct AnchorPath *anchorPath = NULL;
 	BPTR checkFile = 0;
-	struct MD5Ctx *ctx = NULL;
-	ULONG missingFiles = 0;
+	BPTR file = 0;
+	struct AsyncFile asyncFile = {0};
+
 	const char *programName = "asum";
+	ULONG missingFiles = 0;
 	
 	LONG retVal = RETURN_FAIL;
-	
-	struct DosLibrary *DOSBase = (void *) OpenLibrary("dos.library", 36);
 	if (NULL == DOSBase) {
 		goto cleanup;
 	}
@@ -79,10 +83,6 @@ LONG asum(struct ExecBase *SysBase) {
 		PrintFault(ERROR_REQUIRED_ARG_MISSING, programName);
 		goto cleanup;
 	}
-
-	#ifdef __M68K__
-	PowerPCBase = OpenLibrary("powerpc.library", 15);
-	#endif
 
 	buffer = NULL == PowerPCBase ? AllocMem(BUFFER_SIZE * 2, MEMF_ANY) : AllocVec32(BUFFER_SIZE * 2, MEMF_ANY);
 	lineBuffer = AllocMem(LINEBUFFER_SIZE, MEMF_ANY);
@@ -302,8 +302,9 @@ LONG asum(struct ExecBase *SysBase) {
 
 	retVal = 0 != missingFiles ? RETURN_WARN : RETURN_OK;
 cleanup:
-	if (NULL != ctx) {
-		NULL == PowerPCBase ? FreeMem(ctx, sizeof(*ctx)) : FreeVec32(ctx);
+	AsyncFileCleanup(SysBase, DOSBase, &asyncFile);
+	if (0 != file) {
+		Close(file);
 	}
 	if (0 != checkFile) {
 		Close(checkFile);
@@ -312,9 +313,11 @@ cleanup:
 		MatchEnd(anchorPath);
 		FreeMem(anchorPath, sizeof(*anchorPath) + LINEBUFFER_SIZE);
 	}
-	AsyncFileCleanup(SysBase, DOSBase, &asyncFile);
-	if (0 != file) {
-		Close(file);
+	if (NULL != args.toName) {
+		Close(toFile);
+	}
+	if (NULL != ctx) {
+		NULL == PowerPCBase ? FreeMem(ctx, sizeof(*ctx)) : FreeVec32(ctx);
 	}
 	if (NULL != lineBuffer) {
 		FreeMem(lineBuffer, LINEBUFFER_SIZE);
@@ -322,14 +325,11 @@ cleanup:
 	if (NULL != buffer) {
 		NULL == PowerPCBase ? FreeMem(buffer, BUFFER_SIZE * 2) : FreeVec32(buffer);
 	}
-	if (NULL != args.toName) {
-		Close(toFile);
+	if (NULL != argsResult) {
+		FreeArgs(argsResult);
 	}
 	if (NULL != PowerPCBase) {
 		CloseLibrary(PowerPCBase);
-	}
-	if (NULL != argsResult) {
-		FreeArgs(argsResult);
 	}
 	if (NULL != DOSBase) {
 		CloseLibrary((void *) DOSBase);
