@@ -26,7 +26,7 @@ static void FreeVec32(void *address) {
 #include "WarpOSMD5Wrapper.h"
 #include "AsyncFile.h"
 
-const char Version[] = "$VER: asum 0.12 (11.10.2025)";
+const char Version[] = "$VER: asum 0.13 (11.10.2025)";
 
 union MD5Hash {
 	ULONG longs[4];
@@ -149,16 +149,7 @@ LONG asum(struct ExecBase *SysBase) {
 
 					AsyncFileStartRead(DOSBase, &asyncFile, buffers[currBuffer], BUFFER_SIZE);
 
-					if (NULL == PowerPCBase) {
-						MD5_Init(ctx);
-					}
-					else {
-						LONG result = WarpOS_MD5_Init(PowerPCBase, ctx);
-						if (PPERR_SUCCESS != result) {
-							PutStr("RunPPC fail!\n");
-							goto cleanup;
-						}
-					}
+					MD5_Init(ctx);
 
 					while (1) {
 						if (SetSignal(0, SIGBREAKF_CTRL_C) & SIGBREAKF_CTRL_C) {
@@ -192,16 +183,7 @@ LONG asum(struct ExecBase *SysBase) {
 					file = 0;
 
 					union MD5Hash hash;
-					if (NULL == PowerPCBase) {
-						MD5_Final(ctx, hash.bytes);
-					}
-					else {
-						LONG result = WarpOS_MD5_Final(PowerPCBase, ctx, hash.bytes);
-						if (PPERR_SUCCESS != result) {
-							PutStr("RunPPC fail!\n");
-							goto cleanup;
-						}
-					}
+					MD5_Final(ctx, hash.bytes);
 					MD5HashToHex(&hash, lineBuffer);
 					lineBuffer[32] = ' ';
 					lineBuffer[33] = ' ';
@@ -269,16 +251,7 @@ LONG asum(struct ExecBase *SysBase) {
 
 			AsyncFileStartRead(DOSBase, &asyncFile, buffers[currBuffer], BUFFER_SIZE);
 
-			if (NULL == PowerPCBase) {
-				MD5_Init(ctx);
-			}
-			else {
-				LONG result = WarpOS_MD5_Init(PowerPCBase, ctx);
-				if (PPERR_SUCCESS != result) {
-					PutStr("RunPPC fail!\n");
-					goto cleanup;
-				}
-			}
+			MD5_Init(ctx);
 			
 			while (1) {
 				if (SetSignal(0, SIGBREAKF_CTRL_C) & SIGBREAKF_CTRL_C) {
@@ -312,16 +285,7 @@ LONG asum(struct ExecBase *SysBase) {
 			file = 0;
 			
 			union MD5Hash hash;
-			if (NULL == PowerPCBase) {
-				MD5_Final(ctx, hash.bytes);
-			}
-			else {
-				LONG result = WarpOS_MD5_Final(PowerPCBase, ctx, hash.bytes);
-				if (PPERR_SUCCESS != result) {
-					PutStr("RunPPC fail!\n");
-					goto cleanup;
-				}
-			}
+			MD5_Final(ctx, hash.bytes);
 			union MD5Hash checkHash;
 			HexToMD5Hash(checkDigest, &checkHash);
 
