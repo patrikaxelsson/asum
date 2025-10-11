@@ -26,7 +26,7 @@ static void FreeVec32(void *address) {
 #include "WarpOSMD5Wrapper.h"
 #include "AsyncFile.h"
 
-const char Version[] = "$VER: asum 0.13 (11.10.2025)";
+const char Version[] = "$VER: asum 0.14 (11.10.2025)";
 
 union MD5Hash {
 	ULONG longs[4];
@@ -313,7 +313,7 @@ cleanup:
 		MatchEnd(anchorPath);
 		FreeMem(anchorPath, sizeof(*anchorPath) + LINEBUFFER_SIZE);
 	}
-	if (NULL != args.toName) {
+	if (NULL != args.toName && 0 != toFile) {
 		Close(toFile);
 	}
 	if (NULL != ctx) {
