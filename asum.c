@@ -26,7 +26,7 @@ static void FreeVec32(void *address) {
 #include "WarpOSMD5Wrapper.h"
 #include "AsyncFile.h"
 
-const char Version[] = "$VER: asum 0.11 (10.10.2025)";
+const char Version[] = "$VER: asum 0.12 (11.10.2025)";
 
 union MD5Hash {
 	ULONG longs[4];
@@ -149,7 +149,6 @@ LONG asum(struct ExecBase *SysBase) {
 
 					AsyncFileStartRead(DOSBase, &asyncFile, buffers[currBuffer], BUFFER_SIZE);
 
-					MD5_Init(ctx);
 					if (NULL == PowerPCBase) {
 						MD5_Init(ctx);
 					}
@@ -270,7 +269,6 @@ LONG asum(struct ExecBase *SysBase) {
 
 			AsyncFileStartRead(DOSBase, &asyncFile, buffers[currBuffer], BUFFER_SIZE);
 
-			MD5_Init(ctx);
 			if (NULL == PowerPCBase) {
 				MD5_Init(ctx);
 			}
