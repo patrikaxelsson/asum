@@ -2,6 +2,7 @@
 /asum-solar
 /asum.aros-i386
 /asum.mos
+/asum.os4
 /uhctools_deploy.sh
 *.o
 *.*.swp

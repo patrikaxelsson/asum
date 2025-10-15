@@ -6,6 +6,8 @@
 #include <dos/dosextens.h>
 #include <stdbool.h>
 
+#include "OS4Compatibility.h"
+
 struct AsyncFile {
 	struct FileHandle *fileHandle;
 	struct MsgPort *replyPort;

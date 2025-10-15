@@ -1,10 +1,19 @@
+#include <proto/exec.h>
+
 #include <exec/exec.h>
+#include <dos/dosextens.h>
 
 ULONG __abox__ = 1;
 
-extern LONG asum(struct ExecBase *SysBase);
+LONG asum(struct ExecBase *SysBase, struct DosLibrary *DOSBase);
 
 LONG Startup() {
-	struct ExecBase *SysBase = *(struct ExecBase **) 4;
-	return asum(SysBase);
+	struct ExecBase *SysBase = *(void **) 4;
+	struct DosLibrary *DOSBase = (void *) OpenLibrary("dos.library", 36);
+	if (NULL == DOSBase) {
+		return RETURN_FAIL;
+	}
+	LONG retVal = asum(SysBase, DOSBase);
+	CloseLibrary((void *) DOSBase);
+	return retVal;
 }

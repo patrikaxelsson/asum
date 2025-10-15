@@ -9,7 +9,6 @@ static void *AllocVec32(ULONG size, ULONG flags) {
 static void FreeVec32(void *address) {
 }
 #endif
-
 #include <exec/exec.h>
 #include <dos/dos.h>
 #ifdef __M68K__
@@ -25,8 +24,9 @@ static void FreeVec32(void *address) {
 
 #include "WarpOSMD5Wrapper.h"
 #include "AsyncFile.h"
+#include "OS4Compatibility.h"
 
-const char Version[] = "$VER: asum 0.14 (11.10.2025)";
+const char Version[] = "$VER: asum 0.15 (15.10.2025)";
 
 union MD5Hash {
 	ULONG longs[4];
@@ -39,8 +39,7 @@ static void MD5HashToHex(union MD5Hash *hash, char *hex);
 #define BUFFER_SIZE     (64 * 1024)
 #define LINEBUFFER_SIZE (4 * 1024)
 
-LONG asum(struct ExecBase *SysBase) {
-	struct DosLibrary *DOSBase = (void *) OpenLibrary("dos.library", 36);
+LONG asum(struct ExecBase *SysBase, struct DosLibrary *DOSBase) {
 	#ifdef __M68K__
 	struct Library *PowerPCBase = OpenLibrary("powerpc.library", 15);
 	#else
@@ -330,9 +329,6 @@ cleanup:
 	}
 	if (NULL != PowerPCBase) {
 		CloseLibrary(PowerPCBase);
-	}
-	if (NULL != DOSBase) {
-		CloseLibrary((void *) DOSBase);
 	}
 	return retVal;
 }
