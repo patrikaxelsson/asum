@@ -13,10 +13,10 @@ WarpOSMD5Wrapper-prelinked.o: WarpOSMD5Wrapper.o MD5/UHC/md5-ppc-hunk.o Makefile
 # implementation used for the PPC, and allow them to co-exist with the 68k
 # implementation.
 WarpOSMD5Wrapper.o: WarpOSMD5Wrapper.c Makefile
-	vc +aos68k -nostdlib -O2 -sc -fastcall -D__NOLIBBASE__ -c -o $@ $<
+	vc +aos68k -nostdlib -O2 -sc -fastcall -D__NOLIBBASE__ -D__ONLY_MD5_UPDATE__ -c -o $@ $<
 
 MD5/UHC/md5-ppc-hunk.o: MD5/UHC/md5-ppc.s MD5/UHC/md5.h Makefile
-	vasmppc_std -quiet -Fhunk -opt-branch -o $@ $<
+	vasmppc_std -quiet -Fhunk -opt-branch -D__ONLY_MD5_UPDATE__ -o $@ $<
 
 MD5/UHC/md5-ppc-elf.o: MD5/UHC/md5-ppc.s MD5/UHC/md5.h Makefile
 	vasmppc_std -quiet -Felf -opt-branch -D__ELF__ -o $@ $<

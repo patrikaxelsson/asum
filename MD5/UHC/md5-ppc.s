@@ -724,6 +724,7 @@ _body:
 	.size	_body,$-_body
 	.set	___stack_body,112
 
+	.ifndef	__ONLY_MD5_UPDATE__
 	.text
 	.align	2
 	.global	_MD5_Init
@@ -750,6 +751,7 @@ MD5_Init:
 	.type	_MD5_Init,@function
 	.size	_MD5_Init,$-_MD5_Init
 	.set	___stack_MD5_Init,0
+	.endif
 
 	.text
 	.align	2
@@ -836,6 +838,7 @@ MD5_Update:
 	.type	_MD5_Update,@function
 	.size	_MD5_Update,$-_MD5_Update
 
+	.ifndef	__ONLY_MD5_UPDATE__
 	.text
 	.align	2
 	.global	_MD5_Final
@@ -907,5 +910,6 @@ MD5_Final:
 	.type	_MD5_Final,@function
 	.size	_MD5_Final,$-_MD5_Final
 
-	.global	_memcpy
 	.global	_memset
+	.endif
+	.global	_memcpy

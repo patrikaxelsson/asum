@@ -4,10 +4,9 @@
 
 struct MD5Ctx;
 
-extern MD5_Init;
-extern MD5_Update;
-extern MD5_Final;
 
+#ifndef __ONLY_MD5_UPDATE__
+extern MD5_Init;
 LONG WarpOS_MD5_Init(struct Library *PowerPCBase, struct MD5Ctx *ctx) {
 	struct PPCArgs args;
 	args.PP_Code = (void *) &MD5_Init;
@@ -19,7 +18,9 @@ LONG WarpOS_MD5_Init(struct Library *PowerPCBase, struct MD5Ctx *ctx) {
 
 	return RunPPC(&args);
 }
+#endif
 
+extern MD5_Update;
 LONG WarpOS_MD5_Update(struct Library *PowerPCBase, struct MD5Ctx *ctx, void *data, ULONG size) {
 	struct PPCArgs args;
 	args.PP_Code = (void *) &MD5_Update;
@@ -34,6 +35,8 @@ LONG WarpOS_MD5_Update(struct Library *PowerPCBase, struct MD5Ctx *ctx, void *da
 	return RunPPC(&args);
 }
 
+#ifndef __ONLY_MD5_UPDATE__
+extern MD5_Final;
 LONG WarpOS_MD5_Final(struct Library *PowerPCBase, struct MD5Ctx *ctx, UBYTE hash[16]) {
 	struct PPCArgs args;
 	args.PP_Code = (void *) &MD5_Final;
@@ -46,3 +49,4 @@ LONG WarpOS_MD5_Final(struct Library *PowerPCBase, struct MD5Ctx *ctx, UBYTE has
 
 	return RunPPC(&args);
 }
+#endif
