@@ -26,7 +26,7 @@ static void FreeVec32(void *address) {
 #include "AsyncFile.h"
 #include "OS4Compatibility.h"
 
-const char Version[] = "$VER: asum 0.18 (25.10.2025) by Patrik Axelsson and K-P Koljonen";
+const char Version[] = "$VER: asum 0.19 (25.10.2025) by Patrik Axelsson and K-P Koljonen";
 
 union MD5Hash {
 	ULONG longs[4];
@@ -114,6 +114,7 @@ LONG asum(struct ExecBase *SysBase, struct DosLibrary *DOSBase) {
 
 		do {
 			const char *argsFileName = *args.fileNames;
+			anchorPath->ap_Base = 0;
 			anchorPath->ap_BreakBits = SIGBREAKF_CTRL_C;
 			anchorPath->ap_FoundBreak = 0;
 			anchorPath->ap_Flags = 0;
