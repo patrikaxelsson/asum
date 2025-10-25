@@ -7,78 +7,87 @@
 
 #include "AsyncFile.h"
 
-static bool AsyncFileIsOk(const struct AsyncFile *asyncFile) {
-	return NULL != asyncFile->fileHandle &&
-		NULL != asyncFile->replyPort &&
-		NULL != asyncFile->packet;
-}
-
-bool AsyncFileInit(struct ExecBase *SysBase, struct DosLibrary *DOSBase, struct AsyncFile *asyncFile, const BPTR filePtr) {
-	asyncFile->fileHandle = BADDR(filePtr);
-	asyncFile->replyPort = CreateMsgPort();
-	asyncFile->packet = AllocDosObject(DOS_STDPKT, NULL);
-	asyncFile->waitedFor = true;
-	return AsyncFileIsOk(asyncFile);
-}
-
-void AsyncFileStartRead(struct DosLibrary *DOSBase, struct AsyncFile *asyncFile, const void *data, const LONG length) {
-	if(0 != length) { // Don't do anything for zero length
-		asyncFile->packet->dp_Type = ACTION_READ;
-		asyncFile->packet->dp_Arg1 = asyncFile->fileHandle->fh_Arg1; // Never changes, but more obvious this way
-		asyncFile->packet->dp_Arg2 = (LONG) data;
-		asyncFile->packet->dp_Arg3 = length;
-		asyncFile->waitedFor = false;
-
-		struct MsgPort *handlerPort = asyncFile->fileHandle->fh_Type;
-		if(NULL != handlerPort) { // Only send an actual if the handler isn't NIL:
-			SendPkt(asyncFile->packet, handlerPort, asyncFile->replyPort);
-		}
+struct AsyncCtx *AsyncFileInit(struct ExecBase *SysBase, struct DosLibrary *DOSBase, struct AsyncCtx *asyncCtxStore) {
+	if (NULL == asyncCtxStore) {
+		return NULL;
 	}
+	asyncCtxStore->sysBase = SysBase;
+	asyncCtxStore->dosBase = DOSBase;
+
+	asyncCtxStore->replyPort = CreateMsgPort();
+	if (NULL == asyncCtxStore->replyPort) {
+		return NULL;
+	}
+	asyncCtxStore->packet = AllocDosObject(DOS_STDPKT, NULL);
+	if (NULL == asyncCtxStore->packet) {
+		DeleteMsgPort(asyncCtxStore->replyPort);
+		return NULL;
+	}
+	asyncCtxStore->waitedFor = true;
+
+	return asyncCtxStore;
 }
 
-static struct DosPacket *GetDosPacket(struct ExecBase *SysBase, struct MsgPort *msgPort) {
-	struct StandardPacket *standardPacket = (struct StandardPacket *) GetMsg(msgPort);
-	return NULL != standardPacket ? &standardPacket->sp_Pkt : NULL;
+void AsyncFileStartRead(struct AsyncCtx *asyncCtx, const BPTR file, const void *data, const LONG length) {
+	if (0 == length) {
+		return;
+	}
+	struct FileHandle *fileHandle = BADDR(file);
+	struct MsgPort *handlerPort = fileHandle->fh_Type;
+	// If NIL:, don't do anything
+	if (NULL == handlerPort) {
+		return;
+	}
+	struct DosLibrary *DOSBase = asyncCtx->dosBase;
+
+	asyncCtx->packet->dp_Type = ACTION_READ;
+	asyncCtx->packet->dp_Arg1 = fileHandle->fh_Arg1;
+	asyncCtx->packet->dp_Arg2 = (LONG) data;
+	asyncCtx->packet->dp_Arg3 = length;
+	asyncCtx->waitedFor = false;
+
+	SendPkt(asyncCtx->packet, handlerPort, asyncCtx->replyPort);
 }
 
-LONG AsyncFileWaitForCompletion(struct ExecBase *SysBase, struct DosLibrary *DOSBase, struct AsyncFile *asyncFile) {
-	if(!asyncFile->waitedFor) {
-		struct MsgPort *handlerPort = asyncFile->fileHandle->fh_Type;
-		if(NULL != handlerPort) { // Only wait and get result if the handler isn't NIL:
-			// Try getting the packet without waiting first which is quicker, no context-switch
-			struct DosPacket *resultPacket = GetDosPacket(SysBase, asyncFile->replyPort);
-			if(NULL == resultPacket) {
-				WaitPort(asyncFile->replyPort);
-				resultPacket = GetDosPacket(SysBase, asyncFile->replyPort);
-			}
-
-			asyncFile->waitedFor = true;
-
-			if(0 != resultPacket->dp_Res2) {
-				SetIoErr(resultPacket->dp_Res2);
-			}
-			return resultPacket->dp_Res1;
-		}
-		else {
-			return 0; // Return zero length if NIL:
-		}
+LONG AsyncFileWaitForCompletion(struct AsyncCtx *asyncCtx, BPTR file) {
+	if (NULL == asyncCtx) {
+		return 0;
 	}
-	return 0;
+	if (asyncCtx->waitedFor) {
+		return 0;
+	}
+	struct FileHandle *fileHandle = BADDR(file);
+	struct MsgPort *handlerPort = fileHandle->fh_Type;
+	// If NIL:, don't do anything
+	if (NULL == handlerPort) {
+		return 0;
+	}
+	struct ExecBase *SysBase = asyncCtx->sysBase;
+	struct DosLibrary *DOSBase = asyncCtx->dosBase;
+
+	// See if the resulting is already available first, to avoid unnecessary
+	// context switch
+	struct Message *resultMessage = GetMsg(asyncCtx->replyPort);
+	if (NULL == resultMessage) {
+		WaitPort(asyncCtx->replyPort);
+		resultMessage = GetMsg(asyncCtx->replyPort);
+	}
+	struct DosPacket *resultPacket = (void *) resultMessage->mn_Node.ln_Name;
+	asyncCtx->waitedFor = true;
+
+	SetIoErr(resultPacket->dp_Res2);
+	return resultPacket->dp_Res1;
 }
 
-void AsyncFileCleanup(struct ExecBase *SysBase, struct DosLibrary *DOSBase, struct AsyncFile *asyncFile) {
-	if (NULL != asyncFile->fileHandle) {
-		const LONG bytesWritten = AsyncFileWaitForCompletion(SysBase, DOSBase, asyncFile);
-		if(-1 == bytesWritten) {
-			PrintFault(IoErr(), "\nError while waiting for packet");
-		}
+// AsyncFileWaitForCompletion() must have been called before
+void AsyncFileCleanup(struct AsyncCtx *asyncCtx) {
+	if (NULL == asyncCtx) {
+		return;
 	}
+	struct ExecBase *SysBase = asyncCtx->sysBase;
+	struct DosLibrary *DOSBase = asyncCtx->dosBase;
 
-	DeleteMsgPort(asyncFile->replyPort);
-	asyncFile->replyPort = NULL;
-
-	if(NULL != asyncFile->packet) {
-		FreeDosObject(DOS_STDPKT, asyncFile->packet);
-	}
-	asyncFile->packet = NULL;
+	FreeDosObject(DOS_STDPKT, asyncCtx->packet);
+	DeleteMsgPort(asyncCtx->replyPort);
+	return;
 }

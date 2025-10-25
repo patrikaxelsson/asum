@@ -8,16 +8,17 @@
 
 #include "OS4Compatibility.h"
 
-struct AsyncFile {
-	struct FileHandle *fileHandle;
+struct AsyncCtx {
+	struct ExecBase *sysBase;
+	struct DosLibrary *dosBase;
 	struct MsgPort *replyPort;
 	struct DosPacket *packet;
 	bool waitedFor;
 };
 
-bool AsyncFileInit(struct ExecBase *SysBase, struct DosLibrary *DOSBase, struct AsyncFile *asyncFile, const BPTR filePtr);
-void AsyncFileStartRead(struct DosLibrary *DOSBase, struct AsyncFile *asyncFile, const void *data, const LONG length);
-LONG AsyncFileWaitForCompletion(struct ExecBase *SysBase, struct DosLibrary *DOSBase, struct AsyncFile *asyncFile);
-void AsyncFileCleanup(struct ExecBase *SysBase, struct DosLibrary *DOSBase, struct AsyncFile *asyncFile);
+struct AsyncCtx *AsyncFileInit(struct ExecBase *SysBase, struct DosLibrary *DOSBase, struct AsyncCtx *asyncCtxStore);
+void AsyncFileStartRead(struct AsyncCtx *asyncCtx, BPTR file, const void *data, const LONG length);
+LONG AsyncFileWaitForCompletion(struct AsyncCtx *asyncCtx, BPTR file);
+void AsyncFileCleanup(struct AsyncCtx *asyncCtx);
 
 #endif

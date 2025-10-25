@@ -26,7 +26,7 @@ static void FreeVec32(void *address) {
 #include "AsyncFile.h"
 #include "OS4Compatibility.h"
 
-const char Version[] = "$VER: asum 0.17 (21.10.2025) by Patrik Axelsson and K-P Koljonen";
+const char Version[] = "$VER: asum 0.18 (25.10.2025) by Patrik Axelsson and K-P Koljonen";
 
 union MD5Hash {
 	ULONG longs[4];
@@ -49,13 +49,14 @@ LONG asum(struct ExecBase *SysBase, struct DosLibrary *DOSBase) {
 	UBYTE *buffer = NULL;
 	char *lineBuffer = NULL;
 	struct MD5Ctx *ctx = NULL;
+	struct AsyncCtx asyncCtxStore;
+	struct AsyncCtx *asyncCtx;
 	UBYTE *buffers[2];
 	unsigned currBuffer = 0;
 	BPTR toFile = 0;
 	struct AnchorPath *anchorPath = NULL;
 	BPTR checkFile = 0;
 	BPTR file = 0;
-	struct AsyncFile asyncFile = {0};
 
 	const char *programName = "asum";
 	ULONG missingFiles = 0;
@@ -86,7 +87,8 @@ LONG asum(struct ExecBase *SysBase, struct DosLibrary *DOSBase) {
 	buffer = NULL == PowerPCBase ? AllocMem(BUFFER_SIZE * 2, MEMF_ANY) : AllocVec32(BUFFER_SIZE * 2, MEMF_ANY);
 	lineBuffer = AllocMem(LINEBUFFER_SIZE, MEMF_ANY);
 	ctx = NULL == PowerPCBase ? AllocMem(sizeof(*ctx), MEMF_ANY) : AllocVec32(sizeof(*ctx), MEMF_ANY);
-	if (NULL == buffer || NULL == lineBuffer || NULL == ctx) {
+	asyncCtx = AsyncFileInit(SysBase, DOSBase, &asyncCtxStore);
+	if (NULL == buffer || NULL == lineBuffer || NULL == ctx || NULL == asyncCtx) {
 		PrintFault(ERROR_NO_FREE_STORE, programName);
 		goto cleanup;	
 	}
@@ -141,12 +143,7 @@ LONG asum(struct ExecBase *SysBase, struct DosLibrary *DOSBase) {
 						continue;
 					}
 			
-					if (!AsyncFileInit(SysBase, DOSBase, &asyncFile, file)) {
-						PrintFault(ERROR_NO_FREE_STORE, programName);
-						goto cleanup;
-					}
-
-					AsyncFileStartRead(DOSBase, &asyncFile, buffers[currBuffer], BUFFER_SIZE);
+					AsyncFileStartRead(asyncCtx, file, buffers[currBuffer], BUFFER_SIZE);
 
 					MD5_Init(ctx);
 
@@ -155,7 +152,7 @@ LONG asum(struct ExecBase *SysBase, struct DosLibrary *DOSBase) {
 							retVal = RETURN_WARN;
 							goto cleanup;
 						}
-						LONG readBytes = AsyncFileWaitForCompletion(SysBase, DOSBase, &asyncFile);
+						LONG readBytes = AsyncFileWaitForCompletion(asyncCtx, file);
 						if (-1 == readBytes) {
 							PrintFault(IoErr(), fileName);
 							goto cleanup;
@@ -164,7 +161,7 @@ LONG asum(struct ExecBase *SysBase, struct DosLibrary *DOSBase) {
 							break;
 						}
 						unsigned nextBuffer = (currBuffer + 1) & 1;
-						AsyncFileStartRead(DOSBase, &asyncFile, buffers[nextBuffer], BUFFER_SIZE);
+						AsyncFileStartRead(asyncCtx, file, buffers[nextBuffer], BUFFER_SIZE);
 						if (NULL == PowerPCBase) {
 							MD5_Update(ctx, buffers[currBuffer], readBytes);
 						}
@@ -177,7 +174,6 @@ LONG asum(struct ExecBase *SysBase, struct DosLibrary *DOSBase) {
 						}
 						currBuffer = nextBuffer;
 					}
-					AsyncFileCleanup(SysBase, DOSBase, &asyncFile);
 					Close(file);
 					file = 0;
 
@@ -243,12 +239,7 @@ LONG asum(struct ExecBase *SysBase, struct DosLibrary *DOSBase) {
 				continue;
 			}
 			
-			if (!AsyncFileInit(SysBase, DOSBase, &asyncFile, file)) {
-				PrintFault(ERROR_NO_FREE_STORE, programName);
-				goto cleanup;
-			}
-
-			AsyncFileStartRead(DOSBase, &asyncFile, buffers[currBuffer], BUFFER_SIZE);
+			AsyncFileStartRead(asyncCtx, file, buffers[currBuffer], BUFFER_SIZE);
 
 			MD5_Init(ctx);
 			
@@ -257,7 +248,7 @@ LONG asum(struct ExecBase *SysBase, struct DosLibrary *DOSBase) {
 					retVal = RETURN_WARN;
 					goto cleanup;
 				}
-				LONG readBytes = AsyncFileWaitForCompletion(SysBase, DOSBase, &asyncFile);
+				LONG readBytes = AsyncFileWaitForCompletion(asyncCtx, file);
 				if (-1 == readBytes) {
 					PrintFault(IoErr(), fileName);
 					goto cleanup;
@@ -266,7 +257,7 @@ LONG asum(struct ExecBase *SysBase, struct DosLibrary *DOSBase) {
 					break;
 				}
 				unsigned nextBuffer = (currBuffer + 1) & 1;
-				AsyncFileStartRead(DOSBase, &asyncFile, buffers[nextBuffer], BUFFER_SIZE);
+				AsyncFileStartRead(asyncCtx, file, buffers[nextBuffer], BUFFER_SIZE);
 				if (NULL == PowerPCBase) {
 					MD5_Update(ctx, buffers[currBuffer], readBytes);
 				}
@@ -279,7 +270,6 @@ LONG asum(struct ExecBase *SysBase, struct DosLibrary *DOSBase) {
 				}
 				currBuffer = nextBuffer;
 			}
-			AsyncFileCleanup(SysBase, DOSBase, &asyncFile);
 			Close(file);
 			file = 0;
 			
@@ -301,7 +291,8 @@ LONG asum(struct ExecBase *SysBase, struct DosLibrary *DOSBase) {
 
 	retVal = 0 != missingFiles ? RETURN_WARN : RETURN_OK;
 cleanup:
-	AsyncFileCleanup(SysBase, DOSBase, &asyncFile);
+	// In case of cleanup from error where it has not been waited for already
+	AsyncFileWaitForCompletion(asyncCtx, file);
 	if (0 != file) {
 		Close(file);
 	}
@@ -315,6 +306,7 @@ cleanup:
 	if (NULL != args.toName && 0 != toFile) {
 		Close(toFile);
 	}
+	AsyncFileCleanup(asyncCtx);
 	if (NULL != ctx) {
 		NULL == PowerPCBase ? FreeMem(ctx, sizeof(*ctx)) : FreeVec32(ctx);
 	}
