@@ -15,6 +15,15 @@
 	.set	_memset,memset
 	.endif
 
+	# Where to store the Link Register in the caller stack differs between the
+	# SYSV ABI used in MorphOS and OS4 and the PowerOpen ABI used in WarpOS.
+	.ifdef	__SYSV__
+	.set	s_lr,4
+	.else
+	# PowerOpen ABI
+	.set    s_lr,8
+	.endif
+
 	.text
 	.align	2
 # In: r3 struct MD5Ctx *ctx
@@ -769,7 +778,7 @@ MD5_Update:
 	stmw	r26,36(r1)
 	mr	r29,r3         # ctx
 	mr	r28,r4         # data
-	stw	r11,72(r1)
+	stw	r11,64+s_lr(r1)
 	mr	r30,r5         # buffer
 	addi	r10,r29,ctx_lo
 	lwz	r6,0(r10)
@@ -831,7 +840,7 @@ MD5_Update:
 	bl	_memcpy   # Copy remaining data to buffer for next call
 .end:
 	lmw	r26,36(r1)
-	lwz	r11,72(r1)
+	lwz	r11,64+s_lr(r1)
 	addi	r1,r1,64
 	mtlr	r11
 	blr
@@ -852,7 +861,7 @@ MD5_Final:
 	stmw	r28,36(r1)
 	mr	r31,r3             # ctx
 	mr	r30,r4             # result
-	stw	r11,72(r1)
+	stw	r11,64+s_lr(r1)
 	addi	r29,r31,ctx_buffer # ctx_buffer
 	lwz	r28,ctx_lo(r31)
 	andi.	r7,r28,63
@@ -903,7 +912,7 @@ MD5_Final:
 	lwz	r11,ctx_d(r31)
 	stwbrx	r11,r9,r30
 	lmw	r28,36(r1)
-	lwz	r11,72(r1)
+	lwz	r11,64+s_lr(r1)
 	addi	r1,r1,64
 	mtlr	r11
 	blr
