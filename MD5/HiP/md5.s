@@ -408,7 +408,7 @@ stepFa2 macro
 ;
 ; Disable HANDLE_ODD if your calling code can guarantee the above never
 ; happens.
-HANDLE_ODD=1
+;HANDLE_ODD=1
     ifd HANDLE_ODD
 stepFa2OddFirst macro 
     addq    #3,a1

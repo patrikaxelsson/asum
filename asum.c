@@ -26,7 +26,7 @@ static void FreeVec32(void *address) {
 #include "AsyncFile.h"
 #include "OS4Compatibility.h"
 
-const char Version[] = "$VER: asum 0.20 (30.10.2025) by Patrik Axelsson and K-P Koljonen";
+const char Version[] = "$VER: asum 0.21 (2.11.2025) by Patrik Axelsson and K-P Koljonen";
 
 union MD5Hash {
 	ULONG longs[4];
@@ -52,7 +52,6 @@ LONG asum(struct ExecBase *SysBase, struct DosLibrary *DOSBase) {
 	struct AsyncCtx asyncCtxStore;
 	struct AsyncCtx *asyncCtx;
 	UBYTE *buffers[2];
-	unsigned currBuffer = 0;
 	BPTR toFile = 0;
 	struct AnchorPath *anchorPath = NULL;
 	BPTR checkFile = 0;
@@ -144,37 +143,50 @@ LONG asum(struct ExecBase *SysBase, struct DosLibrary *DOSBase) {
 						continue;
 					}
 			
-					AsyncFileStartRead(asyncCtx, file, buffers[currBuffer], BUFFER_SIZE);
+					unsigned readBuffer = 0;
+					unsigned calcBuffer = readBuffer;
+					ULONG readUsed = 0;
+					ULONG calcSize = 0;
+					AsyncFileStartRead(asyncCtx, file, buffers[readBuffer], BUFFER_SIZE);
 
 					MD5_Init(ctx);
 
-					while (1) {
+					LONG readBytes;
+					do {
 						if (SetSignal(0, SIGBREAKF_CTRL_C) & SIGBREAKF_CTRL_C) {
 							retVal = RETURN_WARN;
 							goto cleanup;
 						}
-						LONG readBytes = AsyncFileWaitForCompletion(asyncCtx, file);
+						readBytes = AsyncFileWaitForCompletion(asyncCtx, file);
 						if (-1 == readBytes) {
 							PrintFault(IoErr(), fileName);
 							goto cleanup;
 						}
-						else if (0 == readBytes) {
-							break;
+						readUsed += readBytes;
+						if (BUFFER_SIZE == readUsed || 0 == readBytes) {
+							calcSize = readUsed;
+							calcBuffer = readBuffer;
+							readUsed = 0;
+							readBuffer = ((readBuffer + 1) & 1);
 						}
-						unsigned nextBuffer = (currBuffer + 1) & 1;
-						AsyncFileStartRead(asyncCtx, file, buffers[nextBuffer], BUFFER_SIZE);
-						if (NULL == PowerPCBase) {
-							MD5_Update(ctx, buffers[currBuffer], readBytes);
+						if (0 != readBytes) {
+							AsyncFileStartRead(asyncCtx, file, buffers[readBuffer] + readUsed, BUFFER_SIZE - readUsed);
 						}
-						else {
-							LONG result = WarpOS_MD5_Update(PowerPCBase, ctx, buffers[currBuffer], readBytes);
-							if (PPERR_SUCCESS != result) {
-								PutStr("RunPPC fail!\n");
-								goto cleanup;
+						if (calcSize) {
+							if (NULL == PowerPCBase) {
+								MD5_Update(ctx, buffers[calcBuffer], calcSize);
 							}
+							else {
+								LONG result = WarpOS_MD5_Update(PowerPCBase, ctx, buffers[calcBuffer], calcSize);
+								if (PPERR_SUCCESS != result) {
+									PutStr("RunPPC fail!\n");
+									goto cleanup;
+								}
+							}
+							calcSize = 0;
 						}
-						currBuffer = nextBuffer;
-					}
+					} while (0 != readBytes);
+
 					Close(file);
 					file = 0;
 
@@ -240,37 +252,50 @@ LONG asum(struct ExecBase *SysBase, struct DosLibrary *DOSBase) {
 				continue;
 			}
 			
-			AsyncFileStartRead(asyncCtx, file, buffers[currBuffer], BUFFER_SIZE);
+			unsigned readBuffer = 0;
+			unsigned calcBuffer = readBuffer;
+			ULONG readUsed = 0;
+			ULONG calcSize = 0;
+			AsyncFileStartRead(asyncCtx, file, buffers[readBuffer], BUFFER_SIZE);
 
 			MD5_Init(ctx);
-			
-			while (1) {
+
+			LONG readBytes;
+			do {
 				if (SetSignal(0, SIGBREAKF_CTRL_C) & SIGBREAKF_CTRL_C) {
 					retVal = RETURN_WARN;
 					goto cleanup;
 				}
-				LONG readBytes = AsyncFileWaitForCompletion(asyncCtx, file);
+				readBytes = AsyncFileWaitForCompletion(asyncCtx, file);
 				if (-1 == readBytes) {
 					PrintFault(IoErr(), fileName);
 					goto cleanup;
 				}
-				else if (0 == readBytes) {
-					break;
+				readUsed += readBytes;
+				if (BUFFER_SIZE == readUsed || 0 == readBytes) {
+					calcSize = readUsed;
+					calcBuffer = readBuffer;
+					readUsed = 0;
+					readBuffer = ((readBuffer + 1) & 1);
 				}
-				unsigned nextBuffer = (currBuffer + 1) & 1;
-				AsyncFileStartRead(asyncCtx, file, buffers[nextBuffer], BUFFER_SIZE);
-				if (NULL == PowerPCBase) {
-					MD5_Update(ctx, buffers[currBuffer], readBytes);
+				if (0 != readBytes) {
+					AsyncFileStartRead(asyncCtx, file, buffers[readBuffer] + readUsed, BUFFER_SIZE - readUsed);
 				}
-				else {
-					LONG result = WarpOS_MD5_Update(PowerPCBase, ctx, buffers[currBuffer], readBytes);
-					if (PPERR_SUCCESS != result) {
-						PutStr("RunPPC fail!\n");
-						goto cleanup;
+				if (calcSize) {
+					if (NULL == PowerPCBase) {
+						MD5_Update(ctx, buffers[calcBuffer], calcSize);
 					}
+					else {
+						LONG result = WarpOS_MD5_Update(PowerPCBase, ctx, buffers[calcBuffer], calcSize);
+						if (PPERR_SUCCESS != result) {
+							PutStr("RunPPC fail!\n");
+							goto cleanup;
+						}
+					}
+					calcSize = 0;
 				}
-				currBuffer = nextBuffer;
-			}
+			} while (0 != readBytes);
+
 			Close(file);
 			file = 0;
 			
