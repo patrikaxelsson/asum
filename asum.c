@@ -26,7 +26,7 @@ static void FreeVec32(void *address) {
 #include "AsyncFile.h"
 #include "OS4Compatibility.h"
 
-const char Version[] = "$VER: asum 0.21 (2.11.2025) by Patrik Axelsson and K-P Koljonen";
+const char Version[] = "$VER: asum 1.0 (3.11.2025) by Patrik Axelsson and K-P Koljonen";
 
 union MD5Hash {
 	ULONG longs[4];
