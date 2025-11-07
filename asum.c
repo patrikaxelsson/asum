@@ -50,7 +50,7 @@ LONG asum(struct ExecBase *SysBase, struct DosLibrary *DOSBase) {
 	char *lineBuffer = NULL;
 	struct MD5Ctx *ctx = NULL;
 	struct AsyncCtx asyncCtxStore;
-	struct AsyncCtx *asyncCtx;
+	struct AsyncCtx *asyncCtx = NULL;
 	UBYTE *buffers[2];
 	BPTR toFile = 0;
 	struct AnchorPath *anchorPath = NULL;
@@ -59,11 +59,6 @@ LONG asum(struct ExecBase *SysBase, struct DosLibrary *DOSBase) {
 
 	const char *programName = "asum";
 	ULONG missingFiles = 0;
-	
-	LONG retVal = RETURN_FAIL;
-	if (NULL == DOSBase) {
-		goto cleanup;
-	}
 
 	struct {
 		const char **fileNames;
@@ -71,6 +66,11 @@ LONG asum(struct ExecBase *SysBase, struct DosLibrary *DOSBase) {
 		const char *toName;
 		const char *checkName;
 	} args = {0};
+
+	LONG retVal = RETURN_FAIL;
+	if (NULL == DOSBase) {
+		goto cleanup;
+	}
 
 	argsResult = ReadArgs("FILES/M,ALL/S,TO/K,CHECK/K", (void *) &args, NULL);
 	if (NULL == argsResult) {
@@ -366,9 +366,10 @@ static unsigned HexToNibble(unsigned c) {
 
 static void HexToMD5Hash(char *hex, union MD5Hash *hash) {
 	unsigned count = sizeof(hash->bytes);
-	char *bytes = hash->bytes;
+	unsigned char *bytes = hash->bytes;
 	do {
-		*bytes++ = HexToNibble(*hex++) << 4 | HexToNibble(*hex++);
+		*bytes++ = HexToNibble(hex[0]) << 4 | HexToNibble(hex[1]);
+		hex += 2;
 	} while (--count);
 }
 
