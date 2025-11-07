@@ -1,7 +1,7 @@
 all: asum asum.aros-i386 asum.mos asum.os4
 
 asum: asum.c Startup.c AsyncFile.c AsyncFile.h MD5/HiP/md5.s MD5/HiP/md5.h WarpOSMD5Wrapper-prelinked.o WarpOSMD5Wrapper.h Makefile
-	vc +aos68k -nostdlib -O2 -sc -fastcall -D__NOLIBBASE__ -IMD5/HiP -lvc -o $@ Startup.c $< AsyncFile.c MD5/HiP/md5.s WarpOSMD5Wrapper-prelinked.o
+	vc +aos68k -nostdlib -O2 -sc -fastcall -DBUILD_OS3 -D__NOLIBBASE__ -IMD5/HiP -lvc -o $@ Startup.c $< AsyncFile.c MD5/HiP/md5.s WarpOSMD5Wrapper-prelinked.o
 
 # This separate step is required before linking with 68k code, to avoid PPC
 # code referencing say the _memcpy symbol, being linked to the 68k _memcpy

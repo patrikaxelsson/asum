@@ -1,6 +1,6 @@
 #include <proto/exec.h>
 #include <proto/dos.h>
-#ifdef __M68K__
+#ifdef BUILD_OS3
 #include <proto/powerpc.h>
 #else
 static void *AllocVec32(ULONG size, ULONG flags) {
@@ -11,7 +11,7 @@ static void FreeVec32(void *address) {
 #endif
 #include <exec/exec.h>
 #include <dos/dos.h>
-#ifdef __M68K__
+#ifdef BUILD_OS3
 #include <powerpc/powerpc.h>
 #else
 #define PPERR_SUCCESS 0
@@ -41,7 +41,7 @@ static void MD5HashToHex(union MD5Hash *hash, char *hex);
 
 LONG asum(struct ExecBase *SysBase) {
 	struct DosLibrary *DOSBase = (void *) OpenLibrary("dos.library", 36);
-	#ifdef __M68K__
+	#ifdef BUILD_OS3
 	struct Library *PowerPCBase = OpenLibrary("powerpc.library", 15);
 	#else
 	struct Library *PowerPCBase = NULL;
