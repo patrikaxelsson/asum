@@ -1,21 +1,27 @@
 #include <proto/exec.h>
 #include <proto/dos.h>
 #ifdef BUILD_OS3
+#define TRY_WARPOS 1
+#else
+#define TRY_WARPOS 0
+#endif
+#if TRY_WARPOS
 #include <proto/powerpc.h>
+#include <powerpc/powerpc.h>
 #else
 static void *AllocVec32(ULONG size, ULONG flags) {
 	return NULL;
 }
 static void FreeVec32(void *address) {
 }
-#endif
-#include <exec/exec.h>
-#include <dos/dos.h>
-#ifdef BUILD_OS3
-#include <powerpc/powerpc.h>
-#else
 #define PPERR_SUCCESS 0
 #endif
+#define AllocMemory(size,flags) \
+  (0 == TRY_WARPOS || NULL == PowerPCBase) ? AllocMem(size,flags) : AllocVec32(size,flags)
+#define FreeMemory(address,size) \
+  (0 == TRY_WARPOS || NULL == PowerPCBase) ? FreeMem(address,size) : FreeVec32(address)
+#include <exec/exec.h>
+#include <dos/dos.h>
 
 #include <string.h>
 #include <stdbool.h>
@@ -41,11 +47,7 @@ static void MD5HashToHex(union MD5Hash *hash, char *hex);
 
 LONG asum(struct ExecBase *SysBase) {
 	struct DosLibrary *DOSBase = (void *) OpenLibrary("dos.library", 36);
-	#ifdef BUILD_OS3
-	struct Library *PowerPCBase = OpenLibrary("powerpc.library", 15);
-	#else
-	struct Library *PowerPCBase = NULL;
-	#endif
+	struct Library *PowerPCBase = TRY_WARPOS ? OpenLibrary("powerpc.library", 15) : NULL;
 	struct RDArgs *argsResult = NULL;
 	UBYTE *buffer = NULL;
 	char *lineBuffer = NULL;
@@ -84,9 +86,9 @@ LONG asum(struct ExecBase *SysBase) {
 		goto cleanup;
 	}
 
-	buffer = NULL == PowerPCBase ? AllocMem(BUFFER_SIZE * 2, MEMF_ANY) : AllocVec32(BUFFER_SIZE * 2, MEMF_ANY);
+	buffer = AllocMemory(BUFFER_SIZE * 2, MEMF_ANY);
 	lineBuffer = AllocMem(LINEBUFFER_SIZE, MEMF_ANY);
-	ctx = NULL == PowerPCBase ? AllocMem(sizeof(*ctx), MEMF_ANY) : AllocVec32(sizeof(*ctx), MEMF_ANY);
+	ctx = AllocMemory(sizeof(*ctx), MEMF_ANY);
 	asyncCtx = AsyncFileInit(SysBase, DOSBase, &asyncCtxStore);
 	if (NULL == buffer || NULL == lineBuffer || NULL == ctx || NULL == asyncCtx) {
 		PrintFault(ERROR_NO_FREE_STORE, programName);
@@ -174,7 +176,7 @@ LONG asum(struct ExecBase *SysBase) {
 							AsyncFileStartRead(asyncCtx, file, buffers[readBuffer] + readUsed, BUFFER_SIZE - readUsed);
 						}
 						if (calcSize) {
-							if (NULL == PowerPCBase) {
+							if (0 == TRY_WARPOS || NULL == PowerPCBase) {
 								MD5_Update(ctx, buffers[calcBuffer], calcSize);
 							}
 							else {
@@ -283,7 +285,7 @@ LONG asum(struct ExecBase *SysBase) {
 					AsyncFileStartRead(asyncCtx, file, buffers[readBuffer] + readUsed, BUFFER_SIZE - readUsed);
 				}
 				if (calcSize) {
-					if (NULL == PowerPCBase) {
+					if (0 == TRY_WARPOS || NULL == PowerPCBase) {
 						MD5_Update(ctx, buffers[calcBuffer], calcSize);
 					}
 					else {
@@ -335,18 +337,18 @@ cleanup:
 	}
 	AsyncFileCleanup(asyncCtx);
 	if (NULL != ctx) {
-		NULL == PowerPCBase ? FreeMem(ctx, sizeof(*ctx)) : FreeVec32(ctx);
+		FreeMemory(ctx, sizeof(*ctx));
 	}
 	if (NULL != lineBuffer) {
 		FreeMem(lineBuffer, LINEBUFFER_SIZE);
 	}
 	if (NULL != buffer) {
-		NULL == PowerPCBase ? FreeMem(buffer, BUFFER_SIZE * 2) : FreeVec32(buffer);
+		FreeMemory(buffer, BUFFER_SIZE * 2);
 	}
 	if (NULL != argsResult) {
 		FreeArgs(argsResult);
 	}
-	if (NULL != PowerPCBase) {
+	if (TRY_WARPOS && NULL != PowerPCBase) {
 		CloseLibrary(PowerPCBase);
 	}
 	if (NULL != DOSBase) {
