@@ -30,8 +30,8 @@ asum.aros-i386: asum.c StartupAROS.c AsyncFile.c AsyncFile.h MD5/solar/md5.c MD5
 asum.mos: asum.c StartupMOS.c AsyncFile.c AsyncFile.h MD5/UHC/md5-ppc-sysv-elf.o MD5/UHC/md5.h Makefile
 	vc +morphos -nostdlib -O2 -use-lmw -D__NOLIBBASE__ -IMD5/UHC -lvc -o $@ StartupMOS.c $< AsyncFile.c MD5/UHC/md5-ppc-sysv-elf.o
 
-asum.os4: asum.c StartupOS4.c AsyncFile.c AsyncFile.h MD5/UHC/md5-ppc-sysv-elf.o MD5/UHC/md5.h Makefile
-	vc +aosppc -nostdlib -O2 -use-lmw -D__NOLIBBASE__ -D__USE_INLINE__ -DUSE_OLD_ANCHORPATH -IMD5/UHC -lvc -o $@ StartupOS4.c $< AsyncFile.c MD5/UHC/md5-ppc-sysv-elf.o
+asum.os4: asum.c StartupOS4.c OS4Compatibility.c OS4Compatibility.h AsyncFile.c AsyncFile.h MD5/UHC/md5-ppc-sysv-elf.o MD5/UHC/md5.h Makefile
+	vc +aosppc -nostdlib -O2 -use-lmw -D__NOLIBBASE__ -D__USE_INLINE__ -DUSE_OLD_ANCHORPATH -IMD5/UHC -lvc -o $@ StartupOS4.c OS4Compatibility.c $< AsyncFile.c MD5/UHC/md5-ppc-sysv-elf.o
 
 clean:
 	$(RM) asum asum.aros-i386 asum.mos asum.os4 WarpOSMD5Wrapper.o WarpOSMD5Wrapper-prelinked.o MD5/UHC/md5-ppc-poweropen-hunk.o MD5/UHC/md5-ppc-sysv-elf.o

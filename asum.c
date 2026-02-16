@@ -26,7 +26,7 @@ static void FreeVec32(void *address) {
 #include "AsyncFile.h"
 #include "OS4Compatibility.h"
 
-const char Version[] = "$VER: asum 1.1 (21.11.2025) by Patrik Axelsson and K-P Koljonen";
+const char Version[] = "$VER: asum 1.2 (16.2.2026) by Patrik Axelsson and K-P Koljonen 2025-2026";
 
 union MD5Hash {
 	ULONG longs[4];
@@ -39,7 +39,8 @@ static void MD5HashToHex(union MD5Hash *hash, char *hex);
 #define BUFFER_SIZE     (64 * 1024)
 #define LINEBUFFER_SIZE (4 * 1024)
 
-LONG asum(struct ExecBase *SysBase, struct DosLibrary *DOSBase) {
+LONG asum(struct ExecBase *SysBase) {
+	struct DosLibrary *DOSBase = (void *) OpenLibrary("dos.library", 36);
 	#ifdef __M68K__
 	struct Library *PowerPCBase = OpenLibrary("powerpc.library", 15);
 	#else
@@ -347,6 +348,9 @@ cleanup:
 	}
 	if (NULL != PowerPCBase) {
 		CloseLibrary(PowerPCBase);
+	}
+	if (NULL != DOSBase) {
+		CloseLibrary((void *) DOSBase);
 	}
 	return retVal;
 }
