@@ -32,13 +32,21 @@ static void FreeVec32(void *address) {
 #include "AsyncFile.h"
 #include "OS4Compatibility.h"
 
-const char Version[] = "$VER: asum 1.2 (16.2.2026) by Patrik Axelsson and K-P Koljonen 2025-2026";
+const char Version[] = "$VER: asum 1.2 (19.2.2026) by Patrik Axelsson and K-P Koljonen 2025-2026";
 
 union MD5Hash {
 	ULONG longs[4];
 	UBYTE bytes[16];
 };
 
+enum CalcResult {
+	CalcResult_OK,
+	CalcResult_MissingFile,
+	CalcResult_Break,
+	CalcResult_Error
+};
+
+static enum CalcResult CalcMD5ForFile(struct ExecBase *SysBase, struct DosLibrary *DOSBase, struct Library *PowerPCBase, struct MD5Ctx *ctx, struct AsyncCtx *asyncCtx, UBYTE *buffers[2], const char *fileName, union MD5Hash *hash);
 static void HexToMD5Hash(char *hex, union MD5Hash *hash);
 static void MD5HashToHex(union MD5Hash *hash, char *hex);
 
@@ -58,7 +66,6 @@ LONG asum(struct ExecBase *SysBase) {
 	BPTR toFile = 0;
 	struct AnchorPath *anchorPath = NULL;
 	BPTR checkFile = 0;
-	BPTR file = 0;
 
 	const char *programName = "asum";
 	ULONG missingFiles = 0;
@@ -139,62 +146,17 @@ LONG asum(struct ExecBase *SysBase) {
 					// Happens on NIL: or thors DEV:df0 as DEV: as neither
 					// is a filesystem - Examine() should not work
 					const char *fileName = '\0' != anchorPath->ap_Buf[0] ? anchorPath->ap_Buf : argsFileName;
-					file = Open(fileName, MODE_OLDFILE); 
-					if (0 == file) {
-						PrintFault(IoErr(), fileName);
-						missingFiles++;
-						continue;
-					}
-			
-					unsigned readBuffer = 0;
-					unsigned calcBuffer = readBuffer;
-					ULONG readUsed = 0;
-					ULONG calcSize = 0;
-					AsyncFileStartRead(asyncCtx, file, buffers[readBuffer], BUFFER_SIZE);
-
-					MD5_Init(ctx);
-
-					LONG readBytes;
-					do {
-						if (SetSignal(0, SIGBREAKF_CTRL_C) & SIGBREAKF_CTRL_C) {
-							retVal = RETURN_WARN;
-							goto cleanup;
-						}
-						readBytes = AsyncFileWaitForCompletion(asyncCtx, file);
-						if (-1 == readBytes) {
-							PrintFault(IoErr(), fileName);
-							goto cleanup;
-						}
-						readUsed += readBytes;
-						if (BUFFER_SIZE == readUsed || 0 == readBytes) {
-							calcSize = readUsed;
-							calcBuffer = readBuffer;
-							readUsed = 0;
-							readBuffer = ((readBuffer + 1) & 1);
-						}
-						if (0 != readBytes) {
-							AsyncFileStartRead(asyncCtx, file, buffers[readBuffer] + readUsed, BUFFER_SIZE - readUsed);
-						}
-						if (calcSize) {
-							if (0 == TRY_WARPOS || NULL == PowerPCBase) {
-								MD5_Update(ctx, buffers[calcBuffer], calcSize);
-							}
-							else {
-								LONG result = WarpOS_MD5_Update(PowerPCBase, ctx, buffers[calcBuffer], calcSize);
-								if (PPERR_SUCCESS != result) {
-									PutStr("RunPPC fail!\n");
-									goto cleanup;
-								}
-							}
-							calcSize = 0;
-						}
-					} while (0 != readBytes);
-
-					Close(file);
-					file = 0;
-
 					union MD5Hash hash;
-					MD5_Final(ctx, hash.bytes);
+					enum CalcResult calcResult = CalcMD5ForFile(SysBase, DOSBase, PowerPCBase, ctx, asyncCtx, buffers, fileName, &hash);
+					switch (calcResult) {
+						case CalcResult_MissingFile:
+							missingFiles++;
+							continue;
+						case CalcResult_Break:
+							retVal = RETURN_WARN;
+						case CalcResult_Error:
+							goto cleanup;
+					}
 					MD5HashToHex(&hash, lineBuffer);
 					lineBuffer[32] = ' ';
 					lineBuffer[33] = ' ';
@@ -247,63 +209,19 @@ LONG asum(struct ExecBase *SysBase) {
 			}
 			char *checkDigest = line;
 			char *fileName = line + 32 + 2;
-
-			file = Open(fileName, MODE_OLDFILE); 
-			if (0 == file) {
-				PrintFault(IoErr(), fileName);
-				missingFiles++;
-				continue;
-			}
-			
-			unsigned readBuffer = 0;
-			unsigned calcBuffer = readBuffer;
-			ULONG readUsed = 0;
-			ULONG calcSize = 0;
-			AsyncFileStartRead(asyncCtx, file, buffers[readBuffer], BUFFER_SIZE);
-
-			MD5_Init(ctx);
-
-			LONG readBytes;
-			do {
-				if (SetSignal(0, SIGBREAKF_CTRL_C) & SIGBREAKF_CTRL_C) {
-					retVal = RETURN_WARN;
-					goto cleanup;
-				}
-				readBytes = AsyncFileWaitForCompletion(asyncCtx, file);
-				if (-1 == readBytes) {
-					PrintFault(IoErr(), fileName);
-					goto cleanup;
-				}
-				readUsed += readBytes;
-				if (BUFFER_SIZE == readUsed || 0 == readBytes) {
-					calcSize = readUsed;
-					calcBuffer = readBuffer;
-					readUsed = 0;
-					readBuffer = ((readBuffer + 1) & 1);
-				}
-				if (0 != readBytes) {
-					AsyncFileStartRead(asyncCtx, file, buffers[readBuffer] + readUsed, BUFFER_SIZE - readUsed);
-				}
-				if (calcSize) {
-					if (0 == TRY_WARPOS || NULL == PowerPCBase) {
-						MD5_Update(ctx, buffers[calcBuffer], calcSize);
-					}
-					else {
-						LONG result = WarpOS_MD5_Update(PowerPCBase, ctx, buffers[calcBuffer], calcSize);
-						if (PPERR_SUCCESS != result) {
-							PutStr("RunPPC fail!\n");
-							goto cleanup;
-						}
-					}
-					calcSize = 0;
-				}
-			} while (0 != readBytes);
-
-			Close(file);
-			file = 0;
 			
 			union MD5Hash hash;
-			MD5_Final(ctx, hash.bytes);
+			enum CalcResult calcResult = CalcMD5ForFile(SysBase, DOSBase, PowerPCBase, ctx, asyncCtx, buffers, fileName, &hash);
+			switch (calcResult) {
+				case CalcResult_MissingFile:
+					missingFiles++;
+					continue;
+				case CalcResult_Break:
+					retVal = RETURN_WARN;
+				case CalcResult_Error:
+					goto cleanup;
+			}
+			
 			union MD5Hash checkHash;
 			HexToMD5Hash(checkDigest, &checkHash);
 
@@ -320,11 +238,6 @@ LONG asum(struct ExecBase *SysBase) {
 
 	retVal = 0 != missingFiles ? RETURN_WARN : RETURN_OK;
 cleanup:
-	// In case of cleanup from error where it has not been waited for already
-	AsyncFileWaitForCompletion(asyncCtx, file);
-	if (0 != file) {
-		Close(file);
-	}
 	if (0 != checkFile) {
 		Close(checkFile);
 	}
@@ -355,6 +268,70 @@ cleanup:
 		CloseLibrary((void *) DOSBase);
 	}
 	return retVal;
+}
+
+static enum CalcResult CalcMD5ForFile(struct ExecBase *SysBase, struct DosLibrary *DOSBase, struct Library *PowerPCBase, struct MD5Ctx *ctx, struct AsyncCtx *asyncCtx, UBYTE *buffers[2], const char *fileName, union MD5Hash *hash) {
+	BPTR file = Open(fileName, MODE_OLDFILE);
+	if (0 == file) {
+		PrintFault(IoErr(), fileName);
+		return CalcResult_MissingFile;
+	}
+
+	enum CalcResult calcResult = CalcResult_OK;
+
+	unsigned readBuffer = 0;
+	unsigned calcBuffer = readBuffer;
+	ULONG readUsed = 0;
+	ULONG calcSize = 0;
+	AsyncFileStartRead(asyncCtx, file, buffers[readBuffer], BUFFER_SIZE);
+
+	MD5_Init(ctx);
+
+	LONG readBytes;
+	do {
+		if (SetSignal(0, SIGBREAKF_CTRL_C) & SIGBREAKF_CTRL_C) {
+			calcResult = CalcResult_Break;
+			break;
+		}
+		readBytes = AsyncFileWaitForCompletion(asyncCtx, file);
+		if (-1 == readBytes) {
+			PrintFault(IoErr(), fileName);
+			calcResult = CalcResult_Error;
+			break;
+		}
+		readUsed += readBytes;
+		if (BUFFER_SIZE == readUsed || 0 == readBytes) {
+			calcSize = readUsed;
+			calcBuffer = readBuffer;
+			readUsed = 0;
+			readBuffer = ((readBuffer + 1) & 1);
+		}
+		if (0 != readBytes) {
+			AsyncFileStartRead(asyncCtx, file, buffers[readBuffer] + readUsed, BUFFER_SIZE - readUsed);
+		}
+		if (calcSize) {
+			if (0 == TRY_WARPOS || NULL == PowerPCBase) {
+				MD5_Update(ctx, buffers[calcBuffer], calcSize);
+			}
+			else {
+				LONG result = WarpOS_MD5_Update(PowerPCBase, ctx, buffers[calcBuffer], calcSize);
+				if (PPERR_SUCCESS != result) {
+					PutStr("RunPPC fail!\n");
+					calcResult = CalcResult_Error;
+					break;
+				}
+			}
+			calcSize = 0;
+		}
+	} while (0 != readBytes);
+
+	// In case of error where it has not been waited for already
+	AsyncFileWaitForCompletion(asyncCtx, file);
+	Close(file);
+
+	MD5_Final(ctx, hash->bytes);
+
+	return calcResult;
 }
 
 static unsigned HexToNibble(unsigned c) {
